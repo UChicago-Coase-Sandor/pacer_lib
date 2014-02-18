@@ -5,6 +5,11 @@
 
 pacer_lib Documentation
 ***********************
+
+*pacer_lib* was made possible and is maintained by the `Coase-Sandor Institute
+for Law and Economics <http://coase-sandor.uchicago.edu>`_ at the `University
+of Chicago Law School <http://www.law.uchicago.edu/>`_.
+
 ========
 Overview
 ========
