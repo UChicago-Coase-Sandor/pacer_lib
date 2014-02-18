@@ -1,0 +1,192 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pacer_lib Documentation &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="#" />
+    <link rel="next" title="Foreword" href="Foreword.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Foreword.html" title="Foreword"
+             accesskey="N">next</a> |</li>
+        <li><a href="#">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="pacer-lib-documentation">
+<h1>pacer_lib Documentation<a class="headerlink" href="#pacer-lib-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>Morning.</p>
+<p><a class="reference external" href="https://pypi.python.org/pypi/pacer_lib/2.0">pacer_lib</a> is a library that has
+been designed to facilitate empirical legal research that uses data from the
+<a class="reference external" href="http://www.pacer.gov">Public Access to Court Electronic Records (PACER)</a>
+database by providing easy-to-use objects for scraping, parsing and searching
+PACER docket sheets and documents.</p>
+<p>We developed <em>pacer_lib</em> in order to solve problems that arose naturally
+during the course of our research and our goal is to make it easy to:</p>
+<ul>
+<li><p class="first"><strong>download a large number of specific documents from PACER</strong></p>
+<blockquote>
+<div><p>To locate and download multiple files on PACER requires a lot of manual
+labour, so one of the first things that we developed was a way to
+programatically interface with the PACER Case Locator so that we could
+script all of our docket and document requests.</p>
+</div></blockquote>
+</li>
+<li><p class="first"><strong>store downloaded dockets in a sensible and scalable way</strong></p>
+<blockquote>
+<div><p>PACER charges a fee for every page and document you access. If you have a
+project of any reasonable size and limited means, it becomes extremely
+important to keep track of what files you have already downloaded (lest you
+inadvertently download the file twice). We create a well-documented folder
+structure and a equally well-documented unique identifier that can be
+quickly disaggregated into a PACER search query or PACER case number.</p>
+</div></blockquote>
+</li>
+<li><p class="first"><strong>extract information and create datasets from these dockets</strong></p>
+<blockquote>
+<div><p>We needed to create datasets for regression and textual analysis, so we
+baked in the process of converting relatively unstructured data (.html
+docket sheets) into more structured data (.csv for docket sheets and .json
+objects for other meta information).</p>
+</div></blockquote>
+</li>
+</ul>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Foreword.html">Foreword</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Foreword.html#other-notes">Other Notes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#first-install">First Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#compatibility-and-required-libraries">Compatibility and Required Libraries</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorial.html">Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial.html#downloading-dockets">1. Downloading Dockets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial.html#parsing-downloaded-dockets">2. Parsing Downloaded Dockets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial.html#searching-parsed-dockets">3. Searching Parsed Dockets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial.html#downloading-documents">4. Downloading Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial.html#sorting-documents">5. Sorting Documents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pacer_lib.scraper.html">pacer_lib.scraper</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pacer_lib.scraper.html#search-agent">search_agent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pacer_lib.scraper.html#other-functions">Other Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pacer_lib.reader.html">pacer_lib.reader</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pacer_lib.reader.html#docket-parser">docket_parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pacer_lib.reader.html#docket-processor">docket_processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pacer_lib.reader.html#document-sorter">document_sorter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="FAQ.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Changelog.html">Changelog</a></li>
+</ul>
+</div>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">pacer_lib Documentation</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a><ul>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Foreword.html"
+                        title="next chapter">Foreword</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Foreword.html" title="Foreword"
+             >next</a> |</li>
+        <li><a href="#">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

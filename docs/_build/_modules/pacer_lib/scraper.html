@@ -1,0 +1,834 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pacer_lib.scraper &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pacer_lib 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pacer_lib.scraper</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">codecs</span>
+<span class="kn">import</span> <span class="nn">cStringIO</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">bs4</span> <span class="kn">import</span> <span class="n">BeautifulSoup</span><span class="p">,</span> <span class="n">Comment</span>
+<span class="c">#import lxml</span>
+<span class="c">#Implement logging in the search_agent --&gt; initiate a timestamped logfile (init), initiate an error variable (init) create a function that writes to the file when there is an error, make any query or request store errors and make errors write to that file</span>
+<span class="c">#Implement mySQL stuff</span>
+<div class="viewcode-block" id="search_agent"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent">[docs]</a><span class="k">class</span> <span class="nc">search_agent</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a ``search_agent()`` object, that serves as an interface for </span>
+<span class="sd">    the PACER case locator. It will query and download both dockets </span>
+<span class="sd">    and documents. It is a modified requests.sessions object.</span>
+
+<span class="sd">    **Keyword Arguments**</span>
+
+<span class="sd">    * ``username``: a valid PACER username</span>
+<span class="sd">    * ``password``: a valid PACER password that goes with ``username``</span>
+<span class="sd">    * ``output_path``: allows you to specify the relative path where you would</span>
+<span class="sd">      like to save your downloads. The actual docket sheets will be saved to a</span>
+<span class="sd">      subfolder within output_path, &#39;/local_docket_archive/&#39;. If the folders do</span>
+<span class="sd">      not exist, they will be created.</span>
+<span class="sd">    * ``auto_login``: specify if you would like to login when the object is</span>
+<span class="sd">      instantiated (you may want to use ``search_agent()`` to create PACER query</span>
+<span class="sd">      strings).</span>
+<span class="sd">    * ``wait_time``: how long to wait between requests to the PACER website.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">output_path</span> <span class="o">=</span><span class="s">&#39;./results&#39;</span><span class="p">,</span> <span class="n">auto_login</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">wait_time</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="c">#ATTRIBUTES: username, password, br (browser),</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">username</span> <span class="o">=</span> <span class="n">username</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">password</span> <span class="o">=</span> <span class="n">password</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wait_time</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c">#Login to PACER unless told otherwise.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">br</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">auto_login</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refresh_login</span><span class="p">()</span>
+
+        <span class="c">#Check for save folders, and if missing, create them.</span>
+        <span class="c"># Check that the folders &quot;/results/&quot; and &quot;local_docket_archive&quot;</span>
+        <span class="c"># and &quot;local_document_archive&quot; exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_path</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;/local_docket_archive&quot;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> 
+                        <span class="o">+</span> <span class="s">&quot;/local_document_archive&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_path</span><span class="o">+</span><span class="s">&quot;/local_docket_archive/&quot;</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;/local_docket_archive/&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_path</span><span class="o">+</span><span class="s">&quot;/local_document_archive/&quot;</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> 
+                            <span class="o">+</span> <span class="s">&quot;/local_document_archive/&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+
+<div class="viewcode-block" id="search_agent.refresh_login"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.refresh_login">[docs]</a>    <span class="k">def</span> <span class="nf">refresh_login</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Logs in to the PACER system using the login and password provided at</span>
+<span class="sd">        the initialization of ``search_agent()``. This will create a Requests</span>
+<span class="sd">        session that will allow you to query the PACER system. If </span>
+<span class="sd">        *auto_login* =False, ``refresh_login()`` must be called before you can</span>
+<span class="sd">        query the case_locator. This function will raise an error if you </span>
+<span class="sd">        supply an invalid login or password.</span>
+
+<span class="sd">        Returns nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#SETTINGS (determined from the form from PACER&#39;s &#39;/login.pl&#39;)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;loginid&#39;</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">username</span><span class="p">,</span> <span class="s">&#39;passwd&#39;</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span><span class="p">}</span>
+        <span class="n">login_url</span> <span class="o">=</span> <span class="s">&#39;https://pacer.login.uscourts.gov/cgi-bin/check-pacer-passwd.pl&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">br</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">login_url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&quot;Login Error&quot;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Invalid PACER username or password.&quot;</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="search_agent.query_case_locator"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.query_case_locator">[docs]</a>    <span class="k">def</span> <span class="nf">query_case_locator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">payload</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a string literal of the HTML of the search results page. This </span>
+<span class="sd">        function passes queries to the PACER Case Locator </span>
+<span class="sd">        (https://pcl.uscourts.gov/dquery) and this is the simplest interface</span>
+<span class="sd">        (you can send any key:value pairs as a POST request). </span>
+
+<span class="sd">        We do not recommend using this unless you want more advanced</span>
+<span class="sd">        functionality. </span>
+
+<span class="sd">        **Keyword Arguments**</span>
+
+<span class="sd">        * ``payload``: key-value pairs that will be converted into a POST </span>
+<span class="sd">          request.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#Locator</span>
+        <span class="n">locator_url</span> <span class="o">=</span> <span class="s">&#39;https://pcl.uscourts.gov/dquery&#39;</span>
+        <span class="c"># 1. INITIALIZATION CHECKS</span>
+        <span class="c"># Check if search_agent has started a PACER session</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refresh_login</span><span class="p">()</span>
+        <span class="c"># Check the POST data</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s">&quot;&#39;payload&#39; must be a dictionary.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;case_no&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;Warning: You are not searching for a case number.&quot;</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">locator_url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">wait_time</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span>
+</div>
+<div class="viewcode-block" id="search_agent.search_case_locator"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.search_case_locator">[docs]</a>    <span class="k">def</span> <span class="nf">search_case_locator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">case_no</span><span class="p">,</span> <span class="n">other_options</span><span class="o">=</span><span class="p">{</span><span class="s">&#39;court_type&#39;</span><span class="p">:</span><span class="s">&#39;all&#39;</span><span class="p">,</span>
+    <span class="s">&#39;default_form&#39;</span><span class="p">:</span><span class="s">&#39;b&#39;</span><span class="p">}):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Passes a query to the PACER Case Locator and returns a list of search </span>
+<span class="sd">        results (as well as error message, if applicable). Returns two objects, </span>
+<span class="sd">        a list (*results*) and a string that indicates if there was an error.</span>
+
+<span class="sd">        **Keyword Arguments**</span>
+
+<span class="sd">        * ``case_no``: a string that represents a PACER query.</span>
+<span class="sd">        * ``other_options``: allows you to determine the payload sent to </span>
+<span class="sd">          ``query_case_locator()``. This is validated in ``search_case_locator()``</span>
+<span class="sd">          so that you only pass known valid POST requests. The default options</span>
+<span class="sd">          are those known to be necessary to get search results.</span>
+
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        Each search result is a dictionary with these keys: </span>
+
+<span class="sd">        * ``searched_case_no``</span>
+<span class="sd">        * ``result_no``</span>
+<span class="sd">        * ``case_name``</span>
+<span class="sd">        * ``listed_case_no``</span>
+<span class="sd">        * ``court_id``</span>
+<span class="sd">        * ``nos``</span>
+<span class="sd">        * ``date_filed``</span>
+<span class="sd">        * ``date_closed``</span>
+<span class="sd">        * ``query_link``</span>
+
+<span class="sd">        The second object returned is a string that verbosely indicates errors</span>
+<span class="sd">        that occured. If the search result was found, the string is empty.        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># 1. CHECK FOR VALID ARGUMENTS AND PREPARE PAYLOAD</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">other_options</span>
+        <span class="c"># Are these really the only form options?</span>
+        <span class="n">form_options</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;all_region&quot;</span><span class="p">,</span><span class="s">&quot;case_no&quot;</span><span class="p">,</span><span class="s">&quot;court_type&quot;</span><span class="p">,</span><span class="s">&quot;date_discharge_end&quot;</span><span class="p">,</span><span class="s">&quot;date_discharge_start&quot;</span><span class="p">,</span><span class="s">&quot;date_dismiss_end&quot;</span><span class="p">,</span><span class="s">&quot;date_dismiss_start&quot;</span><span class="p">,</span><span class="s">&quot;date_filed_end&quot;</span><span class="p">,</span><span class="s">&quot;date_filed_start&quot;</span><span class="p">,</span><span class="s">&quot;date_term_end&quot;</span><span class="p">,</span><span class="s">&quot;date_term_start&quot;</span><span class="p">,</span><span class="s">&quot;default_form&quot;</span><span class="p">,</span><span class="s">&quot;mdl_id&quot;</span><span class="p">,</span><span class="s">&quot;party&quot;</span><span class="p">,</span><span class="s">&quot;ssn&quot;</span><span class="p">,</span><span class="s">&quot;ssn4&quot;</span><span class="p">,</span><span class="s">&quot;stitle&quot;</span><span class="p">]</span>
+        <span class="c"># Make sure that all of the options are valid.</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">form_options</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span> <span class="o">+</span> <span class="n">key</span> <span class="o">+</span> <span class="s">&quot;&#39; is not a form option.&quot;</span><span class="p">)</span>
+        <span class="c">#Add the case_no into the payload</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s">&#39;case_no&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">case_no</span><span class="p">)</span>
+        <span class="c"># Ensure that we can query.</span>
+        <span class="k">if</span> <span class="s">&#39;court_type&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s">&#39;court_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;all&#39;</span>
+        <span class="k">if</span> <span class="s">&#39;default_form&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s">&#39;default_form&#39;</span><span class="p">]</span> <span class="o">=</span><span class="s">&#39;b&#39;</span>
+        <span class="c"># Check if case_no is in the correct format</span>
+        <span class="c">#???? THERE ARE MULTIPLE FORMATS FOR THIS</span>
+        <span class="c"># 2. QUERY PACER CASE LOCATOR</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_case_locator</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+        <span class="c"># Simple error checking of the results.</span>
+        <span class="k">if</span> <span class="s">&quot;Invalid case number&quot;</span> <span class="ow">in</span> <span class="n">source</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="s">&quot;ERROR: Invalid Case Number&quot;</span>
+        <span class="k">elif</span> <span class="s">&quot;No records found&quot;</span> <span class="ow">in</span> <span class="n">source</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="s">&quot;No Search Results&quot;</span>
+        <span class="c"># Pass to BeautifulSoup HTML Parser</span>
+        <span class="n">source_code</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="c"># Identify the results table and create a list of search results</span>
+        <span class="n">results_table</span> <span class="o">=</span> <span class="n">source_code</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;table&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;align&#39;</span><span class="p">:</span><span class="s">&#39;center&#39;</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">results_table</span><span class="p">:</span>
+            <span class="n">search_results</span> <span class="o">=</span> <span class="n">results_table</span><span class="o">.</span><span class="n">findAll</span><span class="p">(</span><span class="s">&#39;tr&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[],</span> <span class="s">&quot;ERROR: No Results Table&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">search_results</span><span class="p">:</span>
+            <span class="c"># Skip the row with column headers.</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;court_id&#39;</span><span class="p">}):</span>
+                <span class="k">continue</span>
+            <span class="c"># Pull out the cell information.</span>
+            <span class="n">case_info</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;searched_case_no&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">case_no</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;result_no&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;line_no&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;case_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;cs_title&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;listed_case_no&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;case&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;court_id&#39;</span><span class="p">]</span>  <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;court_id&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;nos&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;nos&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;link&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;case&#39;</span><span class="p">})</span><span class="o">.</span><span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;href&#39;</span><span class="p">)</span>
+            <span class="c"># Handle the Dates</span>
+            <span class="n">dates</span><span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;class&#39;</span><span class="p">:</span><span class="s">&#39;cs_date&#39;</span><span class="p">})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">string</span><span class="p">:</span>
+                <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;date_filed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;None&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;date_filed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dates</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">string</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dates</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">string</span><span class="p">:</span>
+                <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;date_closed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;None&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">case_info</span><span class="p">[</span><span class="s">&#39;date_closed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dates</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">string</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">case_info</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="s">&quot;&quot;</span>
+</div>
+<div class="viewcode-block" id="search_agent.request_docket_sheet"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.request_docket_sheet">[docs]</a>    <span class="k">def</span> <span class="nf">request_docket_sheet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docket_link</span><span class="p">,</span> <span class="n">other_options</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the HTML of the docket sheet specified by *docket_link*.</span>
+
+<span class="sd">        You can also pass additional POST requests through *other_options*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># Pull up the docket report generator page</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">docket_link</span><span class="p">)</span>
+        <span class="c"># Identify the Query Token</span>
+        <span class="n">temp_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;DktRpt.pl\?(.*)&quot;&#39;</span><span class="p">,</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">temp_search</span><span class="p">:</span>
+            <span class="n">query_value</span> <span class="o">=</span> <span class="n">temp_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Unable to parse the docket report generator page&#39;</span><span class="p">)</span>
+
+        <span class="c"># Identify the Case Value</span>
+        <span class="n">temp_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;DktRpt.pl\?(\d*)&#39;</span><span class="p">,</span> <span class="n">docket_link</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">temp_search</span><span class="p">:</span>
+            <span class="n">case_value</span> <span class="o">=</span> <span class="n">temp_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Bad Link&#39;</span><span class="p">)</span>
+        <span class="c">#Set Default Values if no other_options</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">other_options</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">payload</span><span class="p">:</span>
+            <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;date_range_type&#39;</span><span class="p">:</span><span class="s">&#39;Filed&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;list_of_member_cases&#39;</span><span class="p">:</span><span class="s">&#39;on&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;list_of_parties_and_counsel&#39;</span><span class="p">:</span><span class="s">&#39;on&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;terminated_parties&#39;</span><span class="p">:</span><span class="s">&#39;on&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;pdf_header&#39;</span><span class="p">:</span><span class="s">&#39;1&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;output_format&#39;</span><span class="p">:</span><span class="s">&#39;html&#39;</span><span class="p">,</span>
+                        <span class="s">&#39;sort1&#39;</span><span class="p">:</span><span class="s">&#39;oldest date first&#39;</span><span class="p">}</span>
+        <span class="c"># Set case dependent options</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s">&#39;all_case_ids&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">case_value</span>
+        <span class="n">payload</span><span class="p">[</span><span class="s">&#39;CaseNum_&#39;</span> <span class="o">+</span> <span class="n">case_value</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;on&#39;</span>
+        <span class="c"># Request the docket report</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">docket_link</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">case_value</span><span class="p">,</span> <span class="n">query_value</span><span class="p">),</span> 
+                                <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+        <span class="c"># Sometimes, PACER gives you a &quot;many docket entries&quot; page</span>
+        <span class="k">if</span> <span class="s">&quot;&lt;/form&gt;&quot;</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">SystemError</span><span class="p">(</span><span class="s">&quot;Many Docket Entries; Charles needs to code in this exception&quot;</span><span class="p">)</span>
+            <span class="n">__</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;&quot;temp_search = re.search(&#39;DktRpt.pl\?(.*)&quot;&#39;,response.text)</span>
+<span class="s">            query_value_many = temp_search.group(1)</span>
+<span class="s">            if not query_value_many:</span>
+
+<span class="s">            payload_many = {&#39;date_from&#39;:&#39;&#39;}</span>
+<span class="s">            response = self.br.post(docket_link.replace(case_value, </span>
+<span class="s">                                    query_value_many), data=payload_many)&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span>
+</div>
+<div class="viewcode-block" id="search_agent.request_document"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.request_document">[docs]</a>    <span class="k">def</span> <span class="nf">request_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">case_filename</span><span class="p">,</span> <span class="n">document_link</span><span class="p">,</span> <span class="n">other_options</span><span class="o">=</span><span class="p">{}):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Using a case_filename and a link to the document, this function</span>
+<span class="sd">        constructs the necesssary POST data and finds the correct document URL</span>
+<span class="sd">        to download the specified PDF document.</span>
+
+<span class="sd">        Returns binary data.</span>
+
+<span class="sd">        You can also pass additional POST requests through *other_options*.</span>
+
+<span class="sd">        (For version 2.1) Currently only implemented for district courts, but</span>
+<span class="sd">        should eventually be implemented for bankruptcy and appellate courts. </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">__original_link</span> <span class="o">=</span> <span class="n">document_link</span>
+
+        <span class="c"># 0. Check that the case_filenumber is in the correct format.</span>
+        <span class="n">case_filename_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;([a-zA-Z]{5,6})_(\d)\+(\d\d)-&#39;</span>
+                                         <span class="s">&#39;([a-zA-Z]{2})-(\d{1,5})&#39;</span><span class="p">,</span> 
+                                         <span class="n">case_filename</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">case_filename_search</span><span class="p">:</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">case_filename_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">court_short_id</span> <span class="o">=</span> <span class="n">court_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ce&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ke&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Bad case_filename&#39;</span><span class="p">)</span>
+
+        <span class="c"># 1. Identify case_id, de_seq_num and if it is a single-file document.</span>
+        <span class="n">de_seq_num</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">case_id</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">single_file</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c"># Method 1: Try finding both of the variables in the link.</span>
+        <span class="n">case_id_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;caseid=(\d*)&#39;</span><span class="p">,</span> <span class="n">document_link</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">case_id_search</span><span class="p">:</span>
+            <span class="n">case_id</span> <span class="o">=</span> <span class="n">case_id_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">de_seq_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;de_seq_num=(\d*)&#39;</span><span class="p">,</span> <span class="n">document_link</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">de_seq_search</span><span class="p">:</span>
+                <span class="n">de_seq_num</span> <span class="o">=</span> <span class="n">de_seq_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c"># Method 2: Find it in the HTML of the link.</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">document_link</span><span class="p">)</span>
+            <span class="n">temp_soup</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+            <span class="n">post_data</span> <span class="o">=</span> <span class="n">temp_soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;form&#39;</span><span class="p">)</span>
+            <span class="c"># If there is a form, look at the &#39;onsumbit&#39; attribute.</span>
+            <span class="k">if</span> <span class="n">post_data</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">post_data</span><span class="p">[</span><span class="s">&#39;onsubmit&#39;</span><span class="p">]:</span>
+                    <span class="n">search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&quot;goDLS\(&#39;/doc1/\d*&#39;,&#39;(?P&lt;case_id&gt;\d*)&#39;&quot;</span>
+                                        <span class="o">+</span><span class="s">&quot;,&#39;(?P&lt;de_seq_num&gt;\d*)&#39;&quot;</span><span class="p">,</span>
+                                        <span class="n">post_data</span><span class="p">[</span><span class="s">&#39;onsubmit&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">search</span><span class="p">:</span>
+                    <span class="n">case_id</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s">&#39;case_id&#39;</span><span class="p">)</span>
+                    <span class="n">de_seq_num</span> <span class="o">=</span> <span class="n">search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s">&#39;de_seq_num&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c">#If there isn&#39;t a form, then this is a multi-file document.</span>
+                <span class="n">single_file</span> <span class="o">=</span> <span class="bp">False</span>
+
+                <span class="c">#Look for a &quot;View All&quot; Button</span>
+                <span class="n">post_data</span> <span class="o">=</span> <span class="n">temp_soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;input&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;value&#39;</span><span class="p">:</span><span class="s">&#39;View All&#39;</span><span class="p">})</span>
+                <span class="k">if</span> <span class="n">post_data</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">post_data</span><span class="p">[</span><span class="s">&#39;onclick&#39;</span><span class="p">]:</span>
+                        <span class="n">url</span> <span class="o">=</span> <span class="n">post_data</span><span class="p">[</span><span class="s">&#39;onclick&#39;</span><span class="p">]</span>
+                        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\&#39;</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+                        <span class="n">url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;parent.location=&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+
+                        <span class="n">document_link</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;https://ecf.&quot;</span><span class="o">+</span> <span class="n">court_short_id</span> <span class="o">+</span> 
+                                         <span class="s">&quot;.uscourts.gov&quot;</span> <span class="o">+</span> <span class="n">url</span><span class="p">)</span>
+                        <span class="n">case_id_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;caseid=(\d*)&#39;</span><span class="p">,</span> 
+                                                   <span class="n">document_link</span><span class="p">)</span>
+                        <span class="n">de_seq_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;arr_de_seq_nums=(\d*)&#39;</span><span class="p">,</span>
+                                    <span class="n">document_link</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">case_id_search</span> <span class="ow">and</span> <span class="n">de_seq_search</span><span class="p">:</span>
+                            <span class="n">case_id</span> <span class="o">=</span> <span class="n">case_id_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                            <span class="n">de_seq_num</span> <span class="o">=</span> <span class="n">de_seq_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c"># Check if we identified the case_id or not.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">case_id</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">de_seq_num</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">document_link</span> <span class="o">==</span> <span class="n">__original_link</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Could not identify case_id or de_seq_num &#39;</span> <span class="o">+</span>
+                                 <span class="s">&#39;from </span><span class="se">\n\&#39;</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">document_link</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\&#39;</span><span class="s">&#39;</span> <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Multi-part document. Could not identify &#39;</span> <span class="o">+</span>
+                                  <span class="s">&#39;case_id or de_seq_num from </span><span class="se">\n\&#39;</span><span class="s">&#39;</span> <span class="o">+</span> 
+                                  <span class="n">document_link</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\&#39;</span><span class="s"> or </span><span class="se">\n\&#39;</span><span class="s">&#39;</span> <span class="o">+</span> <span class="n">__original_link</span>
+                                  <span class="o">+</span><span class="s">&#39; </span><span class="se">\&#39;</span><span class="s">&#39;</span><span class="p">)</span>                                
+        
+        <span class="c"># 2. Encode the POST Request</span>
+        <span class="c">#Default values</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;caseid&#39;</span> <span class="p">:</span> <span class="n">case_id</span><span class="p">,</span>
+                   <span class="s">&#39;got_receipt&#39;</span> <span class="p">:</span> <span class="s">&#39;1&#39;</span><span class="p">,</span>
+                   <span class="s">&#39;pdf_header&#39;</span> <span class="p">:</span> <span class="s">&#39;2&#39;</span><span class="p">,</span>
+                   <span class="s">&#39;pdf_toggle_possible&#39;</span> <span class="p">:</span> <span class="s">&#39;1&#39;</span><span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">single_file</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s">&#39;de_seq_num&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">de_seq_num</span><span class="p">,</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">payload</span><span class="p">[</span><span class="s">&#39;arr_de_seq_nums&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">de_seq_num</span>
+
+        <span class="n">payload</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">other_options</span><span class="p">)</span>
+
+        <span class="c"># 3. Find the final download link from the&#39;charge&#39; page.</span>
+        <span class="c"># (there used to be a retry if cannot open, but removed, for now)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">document_link</span><span class="p">)</span>
+        
+        <span class="c"># Parse the &#39;charge&#39; page to find the &#39;viewdoc&#39; url that will request</span>
+        <span class="c"># the actual document.</span>
+
+        <span class="n">temp_soup</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="n">viewdoc_url</span> <span class="o">=</span> <span class="n">temp_soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;form&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;action&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">})</span>
+        
+        <span class="c"># If there is no form on this page, then we have found another</span>
+        <span class="c"># intermediate multi-file document page. Follow the links.  </span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">viewdoc_url</span><span class="p">:</span>
+            <span class="n">multipage_viewdoc_url</span> <span class="o">=</span> <span class="n">temp_soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;onclick&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">})</span>
+            <span class="n">temp_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">multipage_viewdoc_url</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;href&#39;</span><span class="p">))</span>
+            <span class="n">temp_soup</span> <span class="o">=</span> <span class="n">BeautifuLSoup</span><span class="o">.</span><span class="n">response</span><span class="p">(</span><span class="n">temp_response</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+            
+            <span class="c">#We should now be at the &quot;Accept Charges Page&quot;</span>
+            <span class="n">viewdoc_url</span> <span class="o">=</span> <span class="n">temp_soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;form&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;action&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">})</span>
+
+        <span class="c"># Pull out the final document URL.</span>
+        <span class="n">document_url</span> <span class="o">=</span> <span class="n">viewdoc_url</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;action&#39;</span><span class="p">)</span>
+
+        <span class="c"># 4. Post to the URL from step 3 with the post_data from part 2.</span>
+        <span class="n">document</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">document_url</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+
+        <span class="c"># The PDF might be embedded in an iframe.</span>
+        <span class="n">iframes</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&quot;/cgi-bin/show_temp\.pl\?file=.*=application/pdf&quot;</span><span class="p">,</span>
+                            <span class="n">document</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">iframes</span><span class="p">:</span>
+            <span class="n">iframe_src</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;https://ecf.&quot;</span> <span class="o">+</span> <span class="n">court_short_id</span> <span class="o">+</span> <span class="s">&quot;.uscourts.gov&quot;</span> <span class="o">+</span> 
+                          <span class="n">iframes</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+            <span class="n">document</span><span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">br</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">iframe_src</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
+
+        <span class="c"># Return the content of the document</span>
+        <span class="k">return</span> <span class="n">document</span><span class="o">.</span><span class="n">content</span>
+    </div>
+<div class="viewcode-block" id="search_agent.download_case_docket"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.download_case_docket">[docs]</a>    <span class="k">def</span> <span class="nf">download_case_docket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="n">other_options</span><span class="o">=</span><span class="p">{</span><span class="s">&#39;court_type&#39;</span><span class="p">:</span><span class="s">&#39;all&#39;</span><span class="p">,</span><span class="s">&#39;default_form&#39;</span><span class="p">:</span><span class="s">&#39;b&#39;</span><span class="p">},</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list that indicates the case_no, court_id and any error.</span>
+<span class="sd">        ``download_case_docket`` also writes the .html docket sheet to</span>
+<span class="sd">        *self.output_path* (in a subfolder &#39;/local_docket_archive/&#39;. If you set </span>
+<span class="sd">        *overwrite*=True, it will overwrite previous dockets. Otherwise, </span>
+<span class="sd">        ``download_case_docket`` will check to see if the docket has already </span>
+<span class="sd">        been downloaded **before** incurring any additional search or download </span>
+<span class="sd">        charges.</span>
+
+<span class="sd">        You can also pass additional POST requests through *other_options*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># &#39;:&#39; is not an acceptable character for Windows filenames, so we replace it with &#39;+&#39;. In older versions, we replaced it with &#39;_&#39;.</span>
+        <span class="n">docket_filepath</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&quot;/local_docket_archive/&quot;</span><span class="o">+</span> <span class="n">court_id</span>
+                           <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="n">case_no</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">,</span> <span class="s">&#39;+&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span><span class="s">&#39;.html&#39;</span><span class="p">)</span>
+        <span class="c"># 0. Check if this docket has already been downloaded</span>
+        <span class="k">if</span> <span class="n">overwrite</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">docket_filepath</span><span class="p">)</span> <span class="ow">or</span> \
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">docket_filepath</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;+&#39;</span><span class="p">,</span><span class="s">&#39;_&#39;</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="s">&quot;Docket already downloaded&quot;</span><span class="p">]</span>
+
+        <span class="c"># 1. Search PACER Case locator using case_no</span>
+        <span class="n">results</span><span class="p">,</span> <span class="n">error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_case_locator</span><span class="p">(</span><span class="n">case_no</span><span class="p">,</span> <span class="n">other_options</span><span class="p">)</span>
+        <span class="c"># 2. IDENTIFY THE CORRECT RESULT</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="n">error</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">correct_result</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                <span class="c"># Iterate through the results and identify the case from the right court</span>
+                <span class="k">if</span> <span class="n">court_id</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="s">&#39;court_id&#39;</span><span class="p">]:</span>
+                    <span class="n">correct_result</span> <span class="o">=</span> <span class="n">result</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="s">&#39;No cases correspond to this case number in that court&#39;</span><span class="p">]</span>
+        <span class="c"># 3. DOWNLOAD THE DOCKET SHEET</span>
+        <span class="c"># Convert the link to a direct link to the docket report</span>
+        <span class="n">docket_link</span> <span class="o">=</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;link&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;iqquerymenu&#39;</span><span class="p">,</span> <span class="s">&#39;DktRpt&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">docket_link</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="s">&quot;No links to this case.&quot;</span><span class="p">]</span>
+        <span class="c"># Add the header (JSON-object)</span>
+        <span class="n">detailed_info</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;&lt;!--detailed_info:</span><span class="se">\n</span><span class="s">{&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;searched_case_no&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;searched_case_no&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span><span class="o">+</span>
+                     <span class="s">&quot;&#39;result_no&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;result_no&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;case_name&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;case_name&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;listed_case_no&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;listed_case_no&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;court_id&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;court_id&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;nos&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;nos&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;link&#39;:&#39;&quot;</span><span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;link&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;date_filed&#39;:&#39;&quot;</span><span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;date_filed&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;date_closed&#39;:&#39;&quot;</span><span class="o">+</span> <span class="n">correct_result</span><span class="p">[</span><span class="s">&#39;date_closed&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="s">&quot;&#39;,&quot;</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;downloaded&#39;:&#39;&quot;</span> <span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s">,%H:%M:%S&#39;</span><span class="p">)</span> <span class="o">+</span>
+                     <span class="s">&quot;&#39;}&quot;</span> <span class="o">+</span> <span class="s">&quot;--&gt;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+        <span class="c"># Save the docket sheet.</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">detailed_info</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_docket_sheet</span><span class="p">(</span><span class="n">docket_link</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">codecs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">docket_filepath</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">prettify</span><span class="p">())</span>
+        <span class="c"># Manually double check</span>
+        <span class="k">if</span> <span class="n">case_no</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">output</span><span class="o">.</span><span class="n">prettify</span><span class="p">():</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span>
+                    <span class="s">&quot;WARNING: Docket Downloaded, but manually double check downloaded docket&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="s">&quot;Docket Downloaded&quot;</span><span class="p">]</span>
+</div>
+<div class="viewcode-block" id="search_agent.download_document"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.search_agent.download_document">[docs]</a>    <span class="k">def</span> <span class="nf">download_document</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">case_filename</span><span class="p">,</span> <span class="n">doc_no</span><span class="p">,</span> <span class="n">doc_link</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list that indicates the case_name, doc_no and any error.</span>
+<span class="sd">        ``download_case_document`` also writes the .pdf document to</span>
+<span class="sd">        *self.output_path* (to the sub-folder &#39;/local_document_archive/&#39;. </span>
+<span class="sd">        If you set *overwrite*=True, it will overwrite previously downloaded</span>
+<span class="sd">        documents. Otherwise, ``download_case_document`` will check to see</span>
+<span class="sd">        if the docket has already been downloaded **before** incurring any </span>
+<span class="sd">        additional search or downlaod charges.</span>
+<span class="sd">        </span>
+<span class="sd">        You can also pass additional POST requests through *other_options*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># 0. Check that the case_filenumber is in the correct format.</span>
+        <span class="n">case_filename_search</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s">&#39;([a-zA-Z]{5,6})_(\d)\+(\d\d)-&#39;</span>
+                                         <span class="s">&#39;([a-zA-Z]{2})-(\d{1,5})&#39;</span><span class="p">,</span> 
+                                         <span class="n">case_filename</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">case_filename_search</span><span class="p">:</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">case_filename_search</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">court_short_id</span> <span class="o">=</span> <span class="n">court_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ce&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ke&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Bad case_filename&#39;</span><span class="p">)</span>
+
+        <span class="c"># &#39;:&#39; is not an acceptable character for Windows filenames, so we </span>
+        <span class="c"># replace it with &#39;+&#39;. In older versions, we replaced it with &#39;_&#39;.</span>
+        <span class="n">doc_filepath</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&quot;/local_document_archive/&quot;</span><span class="o">+</span> 
+                        <span class="n">case_filename</span> <span class="o">+</span> <span class="s">&quot;_document_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">doc_no</span><span class="p">)</span> <span class="o">+</span><span class="s">&#39;.pdf&#39;</span><span class="p">)</span>
+
+        <span class="c"># 0. Check if this docket has already been downloaded</span>
+        <span class="k">if</span> <span class="n">overwrite</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">doc_filepath</span><span class="p">)</span> <span class="ow">or</span> \
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">doc_filepath</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;+&#39;</span><span class="p">,</span><span class="s">&#39;_&#39;</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">case_filename</span><span class="p">,</span> <span class="n">doc_no</span><span class="p">,</span> 
+                        <span class="s">&quot;Document already downloaded&quot;</span><span class="p">]</span>
+
+        <span class="c"># 1. Format the download link.</span>
+        <span class="k">if</span> <span class="s">&quot;http&quot;</span> <span class="ow">in</span> <span class="n">doc_link</span><span class="p">:</span>
+            <span class="n">document_link</span> <span class="o">=</span> <span class="n">doc_link</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">document_link</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;https://ecf.&quot;</span> <span class="o">+</span> <span class="n">court_short_id</span> <span class="o">+</span> <span class="s">&quot;.uscourts.gov&quot;</span>
+                         <span class="o">+</span> <span class="n">doc_link</span><span class="p">)</span>
+
+        <span class="c"># 2 Pass the download link to request_document()</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_document</span><span class="p">(</span><span class="n">case_filename</span><span class="p">,</span> <span class="n">document_link</span><span class="p">)</span>
+
+        <span class="c"># 3. Save the output.</span>
+        <span class="k">if</span> <span class="n">output</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">doc_filepath</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">case_filename</span><span class="p">,</span> <span class="n">doc_no</span><span class="p">,</span> <span class="s">&quot;Document downloaded&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">case_filename</span><span class="p">,</span> <span class="n">doc_no</span><span class="p">,</span> <span class="s">&quot;ERROR: Nothing Downloaded&quot;</span><span class="p">]</span>
+</div></div>
+<div class="viewcode-block" id="disaggregate_docket_number"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.disaggregate_docket_number">[docs]</a><span class="k">def</span> <span class="nf">disaggregate_docket_number</span><span class="p">(</span><span class="n">combined_docket_number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a string that indicates the year of the case and the PACER-valid</span>
+<span class="sd">    case_id.</span>
+
+<span class="sd">    Disaggregates the year from the case number when we have combined docket numbers.</span>
+<span class="sd">    Combined year and case numbers are often stored as integers, but this</span>
+<span class="sd">    leads to the truncation of leading zeroes. We restore these leading</span>
+<span class="sd">    zeroes and then return the two-digit year of the case and the case_id.</span>
+<span class="sd">    The minimum number of digits for this function is five (which assumes</span>
+<span class="sd">    that the case was from 2000). If there are further truncations (e.g.,</span>
+<span class="sd">    &#39;00-00084&#39; stored as &#39;0000084&#39; and truncated to &#39;84&#39;), pre-process your</span>
+<span class="sd">    case-numbers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c">#Force the docket number to a string.</span>
+    <span class="n">combined_docket_number</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">combined_docket_number</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">combined_docket_number</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+        <span class="n">combined_docket_number</span> <span class="o">=</span> <span class="s">&#39;0&#39;</span> <span class="o">+</span> <span class="n">combined_docket_number</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">combined_docket_number</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="n">combined_docket_number</span> <span class="o">=</span> <span class="s">&#39;00&#39;</span> <span class="o">+</span> <span class="n">combined_docket_number</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">combined_docket_number</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">7</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span> <span class="p">(</span><span class="s">&#39;The docket_number must have either 5, 6 or 7 &#39;</span>
+        <span class="o">+</span> <span class="s">&#39;digits.&#39;</span><span class="p">)</span>
+    <span class="n">year</span> <span class="o">=</span> <span class="n">combined_docket_number</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">case_id</span> <span class="o">=</span> <span class="n">combined_docket_number</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">7</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">year</span><span class="p">,</span> <span class="n">case_id</span>
+</div>
+<div class="viewcode-block" id="gen_case_query"><a class="viewcode-back" href="../../pacer_lib.scraper.html#pacer_lib.scraper.gen_case_query">[docs]</a><span class="k">def</span> <span class="nf">gen_case_query</span><span class="p">(</span><span class="n">district</span><span class="p">,</span> <span class="n">office</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">docket_number</span><span class="p">,</span> <span class="n">type_code</span><span class="p">,</span> <span class="n">district_first</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a PACER query from the district, office, year, case_id and case_type </span>
+<span class="sd">    and returns a tuple of (case_id, court_id, region).</span>
+<span class="sd">    </span>
+<span class="sd">    PACER case-numbers can be generated by consolidating the district,</span>
+<span class="sd">    office, year, case id and case type information in a specific way.</span>
+<span class="sd">    This function formats the district name and type_code correctly and then</span>
+<span class="sd">    combines the case identifying information into a single PACER query.</span>
+
+<span class="sd">    Many other data sources list the district of the court before the state,</span>
+<span class="sd">    e.g., EDNY rather than NYED. If this is not the case, turn off the</span>
+<span class="sd">    district_first option.</span>
+
+<span class="sd">    **Keyword Arguments**</span>
+
+<span class="sd">    * ``year`` should be either 2 digits (e.g., 00) or 4 digits (e.g., 1978).</span>
+<span class="sd">    * ``case_id`` should be exactly 5digits</span>
+<span class="sd">    * ``type code`` must be one of the following: civil, civ, criminal, crim,</span>
+<span class="sd">      bankruptcy, bank, cv, cr, bk</span>
+<span class="sd">    </span>
+<span class="sd">    Returns a tuple (case_number, court_id)</span>
+<span class="sd">    </span>
+<span class="sd">    (For Version 2.1)</span>
+<span class="sd">    Note: Appellate Courts have not been implemented yet.</span>
+<span class="sd">    </span>
+<span class="sd">    Some of this functionality may not be necessary and should be revisited.</span>
+<span class="sd">    </span>
+<span class="sd">    Specifically, year can be 2 or 4 digits and case number does not have to</span>
+<span class="sd">    be exactly 5 digits (up to 5 digits). Office must be exactly 1 digit.</span>
+<span class="sd">    </span>
+<span class="sd">    We could also consider including the specific sate in the output.</span>
+<span class="sd">    We should also create a list of all valid courtids and check against it.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">type_code_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;civil&#39;</span><span class="p">:</span><span class="s">&#39;cv&#39;</span><span class="p">,</span> <span class="s">&#39;civ&#39;</span><span class="p">:</span> <span class="s">&#39;cv&#39;</span><span class="p">,</span>
+                      <span class="s">&#39;criminal&#39;</span><span class="p">:</span> <span class="s">&#39;cr&#39;</span><span class="p">,</span> <span class="s">&#39;crim&#39;</span><span class="p">:</span> <span class="s">&#39;cr&#39;</span><span class="p">,</span>
+                      <span class="s">&#39;bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;bk&#39;</span><span class="p">,</span> <span class="s">&#39;bank&#39;</span><span class="p">:</span> <span class="s">&#39;bk&#39;</span><span class="p">}</span>
+    <span class="n">state_to_code</span> <span class="o">=</span> <span class="p">{</span><span class="s">&quot;alaska&quot;</span><span class="p">:</span> <span class="s">&quot;ak&quot;</span><span class="p">,</span> <span class="s">&quot;alabama&quot;</span><span class="p">:</span> <span class="s">&quot;al&quot;</span><span class="p">,</span> <span class="s">&quot;arkansas&quot;</span><span class="p">:</span> <span class="s">&quot;ar&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;arizona&quot;</span><span class="p">:</span> <span class="s">&quot;az&quot;</span><span class="p">,</span> <span class="s">&quot;california&quot;</span><span class="p">:</span> <span class="s">&quot;ca&quot;</span><span class="p">,</span> <span class="s">&quot;colorado&quot;</span><span class="p">:</span> <span class="s">&quot;co&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;connecticut&quot;</span><span class="p">:</span> <span class="s">&quot;ct&quot;</span><span class="p">,</span> <span class="s">&quot;delaware&quot;</span><span class="p">:</span> <span class="s">&quot;de&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;district of columbia&quot;</span><span class="p">:</span> <span class="s">&quot;dc&quot;</span><span class="p">,</span> <span class="s">&quot;florida&quot;</span><span class="p">:</span> <span class="s">&quot;fl&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;georgia&quot;</span><span class="p">:</span> <span class="s">&quot;ga&quot;</span><span class="p">,</span> <span class="s">&quot;hawaii&quot;</span><span class="p">:</span> <span class="s">&quot;hi&quot;</span><span class="p">,</span> <span class="s">&quot;iowa&quot;</span><span class="p">:</span> <span class="s">&quot;ia&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;idaho&quot;</span><span class="p">:</span> <span class="s">&quot;id&quot;</span><span class="p">,</span> <span class="s">&quot;illinois&quot;</span><span class="p">:</span> <span class="s">&quot;il&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;indiana&quot;</span><span class="p">:</span> <span class="s">&quot;in&quot;</span><span class="p">,</span> <span class="s">&quot;kansas&quot;</span><span class="p">:</span> <span class="s">&quot;ks&quot;</span><span class="p">,</span> <span class="s">&quot;kentucky&quot;</span><span class="p">:</span> <span class="s">&quot;ky&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;louisiana&quot;</span><span class="p">:</span> <span class="s">&quot;la&quot;</span><span class="p">,</span><span class="s">&quot;maine&quot;</span><span class="p">:</span> <span class="s">&quot;me&quot;</span><span class="p">,</span> <span class="s">&quot;maryland&quot;</span><span class="p">:</span> <span class="s">&quot;md&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;massachusetts&quot;</span><span class="p">:</span> <span class="s">&quot;ma&quot;</span><span class="p">,</span> <span class="s">&quot;michigan&quot;</span><span class="p">:</span> <span class="s">&quot;mi&quot;</span><span class="p">,</span> <span class="s">&quot;minnesota&quot;</span><span class="p">:</span> <span class="s">&quot;mn&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;mississippi&quot;</span><span class="p">:</span> <span class="s">&quot;ms&quot;</span><span class="p">,</span>  <span class="s">&quot;missouri&quot;</span><span class="p">:</span> <span class="s">&quot;mo&quot;</span><span class="p">,</span> <span class="s">&quot;montana&quot;</span><span class="p">:</span> <span class="s">&quot;mt&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;nebraska&quot;</span><span class="p">:</span> <span class="s">&quot;ne&quot;</span><span class="p">,</span> <span class="s">&quot;nevada&quot;</span><span class="p">:</span> <span class="s">&quot;nv&quot;</span><span class="p">,</span> <span class="s">&quot;new hampshire&quot;</span><span class="p">:</span> <span class="s">&quot;nh&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;new jersey&quot;</span><span class="p">:</span> <span class="s">&quot;nj&quot;</span><span class="p">,</span> <span class="s">&quot;new mexico&quot;</span><span class="p">:</span> <span class="s">&quot;nm&quot;</span><span class="p">,</span> <span class="s">&quot;new york&quot;</span><span class="p">:</span> <span class="s">&quot;ny&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;north carolina&quot;</span><span class="p">:</span> <span class="s">&quot;nc&quot;</span><span class="p">,</span> <span class="s">&quot;north dakota&quot;</span><span class="p">:</span> <span class="s">&quot;nd&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;northern mariana islands&quot;</span><span class="p">:</span> <span class="s">&quot;nmi&quot;</span><span class="p">,</span> <span class="s">&quot;ohio&quot;</span><span class="p">:</span> <span class="s">&quot;oh&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;oklahoma&quot;</span><span class="p">:</span> <span class="s">&quot;ok&quot;</span><span class="p">,</span> <span class="s">&quot;oregon&quot;</span><span class="p">:</span> <span class="s">&quot;or&quot;</span><span class="p">,</span> <span class="s">&quot;pennsylvania&quot;</span><span class="p">:</span> <span class="s">&quot;pa&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;puerto rico&quot;</span><span class="p">:</span> <span class="s">&quot;pr&quot;</span><span class="p">,</span> <span class="s">&quot;rhode island&quot;</span><span class="p">:</span> <span class="s">&quot;ri&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;south carolina&quot;</span><span class="p">:</span> <span class="s">&quot;sc&quot;</span><span class="p">,</span> <span class="s">&quot;south dakota&quot;</span><span class="p">:</span> <span class="s">&quot;sd&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;tennessee&quot;</span><span class="p">:</span> <span class="s">&quot;tn&quot;</span><span class="p">,</span> <span class="s">&quot;texas&quot;</span><span class="p">:</span> <span class="s">&quot;tx&quot;</span><span class="p">,</span> <span class="s">&quot;utah&quot;</span><span class="p">:</span> <span class="s">&quot;ut&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;vermont&quot;</span><span class="p">:</span> <span class="s">&quot;vt&quot;</span><span class="p">,</span> <span class="s">&quot;virgin islands&quot;</span><span class="p">:</span> <span class="s">&quot;vi&quot;</span><span class="p">,</span> <span class="s">&quot;virginia&quot;</span><span class="p">:</span> <span class="s">&quot;va&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;washington&quot;</span><span class="p">:</span> <span class="s">&quot;wa&quot;</span><span class="p">,</span> <span class="s">&quot;west virginia&quot;</span><span class="p">:</span> <span class="s">&quot;wv&quot;</span><span class="p">,</span>
+                    <span class="s">&quot;wisconsin&quot;</span><span class="p">:</span> <span class="s">&quot;wi&quot;</span><span class="p">,</span> <span class="s">&quot;wyoming&quot;</span><span class="p">:</span> <span class="s">&quot;wy&quot;</span><span class="p">}</span>
+    <span class="n">district_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;northern district&#39;</span><span class="p">:</span> <span class="s">&#39;nd&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;southern district&#39;</span><span class="p">:</span> <span class="s">&#39;sd&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;eastern district&#39;</span><span class="p">:</span> <span class="s">&#39;ed&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;western district&#39;</span><span class="p">:</span> <span class="s">&#39;wd&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;middle district&#39;</span><span class="p">:</span> <span class="s">&#39;md&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;central district&#39;</span><span class="p">:</span> <span class="s">&#39;cd&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;northern bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;nb&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;southern bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;sb&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;eastern bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;eb&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;western bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;wb&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;middle bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;mb&#39;</span><span class="p">,</span>
+                     <span class="s">&#39;central bankruptcy&#39;</span><span class="p">:</span> <span class="s">&#39;cb&#39;</span><span class="p">}</span>
+    <span class="n">states</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;AL&quot;</span><span class="p">,</span> <span class="s">&quot;AK&quot;</span><span class="p">,</span> <span class="s">&quot;AZ&quot;</span><span class="p">,</span> <span class="s">&quot;AR&quot;</span><span class="p">,</span> <span class="s">&quot;CA&quot;</span><span class="p">,</span> <span class="s">&quot;CO&quot;</span><span class="p">,</span> <span class="s">&quot;CT&quot;</span><span class="p">,</span> <span class="s">&quot;DC&quot;</span><span class="p">,</span> <span class="s">&quot;DE&quot;</span><span class="p">,</span> <span class="s">&quot;FL&quot;</span><span class="p">,</span> <span class="s">&quot;GA&quot;</span><span class="p">,</span>
+          <span class="s">&quot;HI&quot;</span><span class="p">,</span> <span class="s">&quot;ID&quot;</span><span class="p">,</span> <span class="s">&quot;IL&quot;</span><span class="p">,</span> <span class="s">&quot;IN&quot;</span><span class="p">,</span> <span class="s">&quot;IA&quot;</span><span class="p">,</span> <span class="s">&quot;KS&quot;</span><span class="p">,</span> <span class="s">&quot;KY&quot;</span><span class="p">,</span> <span class="s">&quot;LA&quot;</span><span class="p">,</span> <span class="s">&quot;ME&quot;</span><span class="p">,</span> <span class="s">&quot;MD&quot;</span><span class="p">,</span>
+          <span class="s">&quot;MA&quot;</span><span class="p">,</span> <span class="s">&quot;MI&quot;</span><span class="p">,</span> <span class="s">&quot;MN&quot;</span><span class="p">,</span> <span class="s">&quot;MS&quot;</span><span class="p">,</span> <span class="s">&quot;MO&quot;</span><span class="p">,</span> <span class="s">&quot;MT&quot;</span><span class="p">,</span> <span class="s">&quot;NE&quot;</span><span class="p">,</span> <span class="s">&quot;NV&quot;</span><span class="p">,</span> <span class="s">&quot;NH&quot;</span><span class="p">,</span> <span class="s">&quot;NJ&quot;</span><span class="p">,</span>
+          <span class="s">&quot;NM&quot;</span><span class="p">,</span> <span class="s">&quot;NY&quot;</span><span class="p">,</span> <span class="s">&quot;NC&quot;</span><span class="p">,</span> <span class="s">&quot;ND&quot;</span><span class="p">,</span> <span class="s">&quot;OH&quot;</span><span class="p">,</span> <span class="s">&quot;OK&quot;</span><span class="p">,</span> <span class="s">&quot;OR&quot;</span><span class="p">,</span> <span class="s">&quot;PA&quot;</span><span class="p">,</span> <span class="s">&quot;RI&quot;</span><span class="p">,</span> <span class="s">&quot;SC&quot;</span><span class="p">,</span>
+          <span class="s">&quot;SD&quot;</span><span class="p">,</span> <span class="s">&quot;TN&quot;</span><span class="p">,</span> <span class="s">&quot;TX&quot;</span><span class="p">,</span> <span class="s">&quot;UT&quot;</span><span class="p">,</span> <span class="s">&quot;VT&quot;</span><span class="p">,</span> <span class="s">&quot;VA&quot;</span><span class="p">,</span> <span class="s">&quot;WA&quot;</span><span class="p">,</span> <span class="s">&quot;WV&quot;</span><span class="p">,</span> <span class="s">&quot;WI&quot;</span><span class="p">,</span> <span class="s">&quot;WY&quot;</span><span class="p">]</span>
+    <span class="n">district_court_ids</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;almdce&quot;</span><span class="p">,</span>  <span class="s">&quot;alndce&quot;</span><span class="p">,</span> <span class="s">&quot;alsdce&quot;</span><span class="p">,</span> <span class="s">&quot;akdce&quot;</span><span class="p">,</span> <span class="s">&quot;azdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;aredce&quot;</span><span class="p">,</span> <span class="s">&quot;arwdce&quot;</span><span class="p">,</span> <span class="s">&quot;cacdce&quot;</span><span class="p">,</span> <span class="s">&quot;caedce&quot;</span><span class="p">,</span> <span class="s">&quot;candce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;casdce&quot;</span><span class="p">,</span> <span class="s">&quot;codce&quot;</span><span class="p">,</span> <span class="s">&quot;ctdce&quot;</span><span class="p">,</span> <span class="s">&quot;dedce&quot;</span><span class="p">,</span> <span class="s">&quot;dcdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;flmdce&quot;</span><span class="p">,</span> <span class="s">&quot;flndce&quot;</span><span class="p">,</span> <span class="s">&quot;flsdce&quot;</span><span class="p">,</span> <span class="s">&quot;gamdce&quot;</span><span class="p">,</span> <span class="s">&quot;gandce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;gasdce&quot;</span><span class="p">,</span> <span class="s">&quot;gudce&quot;</span><span class="p">,</span> <span class="s">&quot;hidce&quot;</span><span class="p">,</span> <span class="s">&quot;iddce&quot;</span><span class="p">,</span> <span class="s">&quot;ilcdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;ilndce&quot;</span><span class="p">,</span> <span class="s">&quot;ilsdce&quot;</span><span class="p">,</span> <span class="s">&quot;inndce&quot;</span><span class="p">,</span> <span class="s">&quot;insdce&quot;</span><span class="p">,</span> <span class="s">&quot;iandce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;iasdce&quot;</span><span class="p">,</span> <span class="s">&quot;ksdce&quot;</span><span class="p">,</span> <span class="s">&quot;kyedce&quot;</span><span class="p">,</span> <span class="s">&quot;kywdce&quot;</span><span class="p">,</span> <span class="s">&quot;laedce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;lamdce&quot;</span><span class="p">,</span> <span class="s">&quot;lawdce&quot;</span><span class="p">,</span> <span class="s">&quot;medce&quot;</span><span class="p">,</span> <span class="s">&quot;mddce&quot;</span><span class="p">,</span> <span class="s">&quot;madce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;miedce&quot;</span><span class="p">,</span> <span class="s">&quot;miwdce&quot;</span><span class="p">,</span> <span class="s">&quot;mndce&quot;</span><span class="p">,</span> <span class="s">&quot;msndce&quot;</span><span class="p">,</span> <span class="s">&quot;mssdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;moedce&quot;</span><span class="p">,</span> <span class="s">&quot;mowdce&quot;</span><span class="p">,</span> <span class="s">&quot;mtdce&quot;</span><span class="p">,</span> <span class="s">&quot;nedce&quot;</span><span class="p">,</span> <span class="s">&quot;nvdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;nhdce&quot;</span><span class="p">,</span> <span class="s">&quot;njdce&quot;</span><span class="p">,</span> <span class="s">&quot;nmdce&quot;</span><span class="p">,</span> <span class="s">&quot;nyedce&quot;</span><span class="p">,</span> <span class="s">&quot;nyndce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;nysdce&quot;</span><span class="p">,</span> <span class="s">&quot;nywdce&quot;</span><span class="p">,</span> <span class="s">&quot;ncedce&quot;</span><span class="p">,</span> <span class="s">&quot;ncmdce&quot;</span><span class="p">,</span> <span class="s">&quot;ncwdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;nddce&quot;</span><span class="p">,</span> <span class="s">&quot;nmidce&quot;</span><span class="p">,</span> <span class="s">&quot;ohndce&quot;</span><span class="p">,</span> <span class="s">&quot;ohsdce&quot;</span><span class="p">,</span> <span class="s">&quot;okedce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;okndce&quot;</span><span class="p">,</span> <span class="s">&quot;okwdce&quot;</span><span class="p">,</span> <span class="s">&quot;ordce&quot;</span><span class="p">,</span> <span class="s">&quot;paedce&quot;</span><span class="p">,</span> <span class="s">&quot;pamdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;pawdce&quot;</span><span class="p">,</span> <span class="s">&quot;prdce&quot;</span><span class="p">,</span> <span class="s">&quot;ridce&quot;</span><span class="p">,</span> <span class="s">&quot;scdce&quot;</span><span class="p">,</span> <span class="s">&quot;sddce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;tnedce&quot;</span><span class="p">,</span> <span class="s">&quot;tnmdce&quot;</span><span class="p">,</span> <span class="s">&quot;tnwdce&quot;</span><span class="p">,</span> <span class="s">&quot;txedce&quot;</span><span class="p">,</span> <span class="s">&quot;txndce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;txsdce&quot;</span><span class="p">,</span> <span class="s">&quot;txwdce&quot;</span><span class="p">,</span> <span class="s">&quot;utdce&quot;</span><span class="p">,</span> <span class="s">&quot;vtdce&quot;</span><span class="p">,</span> <span class="s">&quot;vidce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;vaedce&quot;</span><span class="p">,</span> <span class="s">&quot;vawdce&quot;</span><span class="p">,</span> <span class="s">&quot;wawdce&quot;</span><span class="p">,</span> <span class="s">&quot;wvndce&quot;</span><span class="p">,</span> <span class="s">&quot;wvsdce&quot;</span><span class="p">,</span>
+                          <span class="s">&quot;wiedce&quot;</span><span class="p">,</span> <span class="s">&quot;wiwdce&quot;</span><span class="p">,</span> <span class="s">&quot;wydce&quot;</span><span class="p">)</span>
+    <span class="n">bankruptcy_court_ids</span> <span class="o">=</span> <span class="p">(</span><span class="s">&quot;almbke&quot;</span><span class="p">,</span> <span class="s">&quot;alnbke&quot;</span><span class="p">,</span> <span class="s">&quot;alsbke&quot;</span><span class="p">,</span> <span class="s">&quot;akbke&quot;</span><span class="p">,</span> <span class="s">&quot;azbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;arebke&quot;</span><span class="p">,</span> <span class="s">&quot;arwbke&quot;</span><span class="p">,</span> <span class="s">&quot;cacbke&quot;</span><span class="p">,</span> <span class="s">&quot;caebke&quot;</span><span class="p">,</span> <span class="s">&quot;canbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;casbke&quot;</span><span class="p">,</span> <span class="s">&quot;cobke&quot;</span><span class="p">,</span> <span class="s">&quot;ctbke&quot;</span><span class="p">,</span> <span class="s">&quot;debke&quot;</span><span class="p">,</span> <span class="s">&quot;dcbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;flmbke&quot;</span><span class="p">,</span> <span class="s">&quot;flnbke&quot;</span><span class="p">,</span> <span class="s">&quot;flsbke&quot;</span><span class="p">,</span> <span class="s">&quot;gambke&quot;</span><span class="p">,</span> <span class="s">&quot;ganbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;gasbke&quot;</span><span class="p">,</span> <span class="s">&quot;gubke&quot;</span><span class="p">,</span> <span class="s">&quot;hibke&quot;</span><span class="p">,</span> <span class="s">&quot;idbke&quot;</span><span class="p">,</span> <span class="s">&quot;ilcbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;ilnbke&quot;</span><span class="p">,</span> <span class="s">&quot;ilsbke&quot;</span><span class="p">,</span> <span class="s">&quot;innbke&quot;</span><span class="p">,</span> <span class="s">&quot;insbke&quot;</span><span class="p">,</span> <span class="s">&quot;ianbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;iasbke&quot;</span><span class="p">,</span> <span class="s">&quot;ksbke&quot;</span><span class="p">,</span> <span class="s">&quot;kyebke&quot;</span><span class="p">,</span> <span class="s">&quot;kywbke&quot;</span><span class="p">,</span> <span class="s">&quot;laebke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;lambke&quot;</span><span class="p">,</span> <span class="s">&quot;lawbke&quot;</span><span class="p">,</span> <span class="s">&quot;mebke&quot;</span><span class="p">,</span> <span class="s">&quot;mdbke&quot;</span><span class="p">,</span><span class="s">&quot;mabke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;miebke&quot;</span><span class="p">,</span> <span class="s">&quot;miwbke&quot;</span><span class="p">,</span> <span class="s">&quot;mnbke&quot;</span><span class="p">,</span> <span class="s">&quot;msnbke&quot;</span><span class="p">,</span> <span class="s">&quot;mssbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;moebke&quot;</span><span class="p">,</span> <span class="s">&quot;mowbke&quot;</span><span class="p">,</span> <span class="s">&quot;mtbke&quot;</span><span class="p">,</span> <span class="s">&quot;nebke&quot;</span><span class="p">,</span> <span class="s">&quot;nvbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;nhbke&quot;</span><span class="p">,</span> <span class="s">&quot;njbke&quot;</span><span class="p">,</span> <span class="s">&quot;nmbke&quot;</span><span class="p">,</span> <span class="s">&quot;nyebke&quot;</span><span class="p">,</span> <span class="s">&quot;nynbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;nysbke&quot;</span><span class="p">,</span> <span class="s">&quot;nywbke&quot;</span><span class="p">,</span> <span class="s">&quot;ncebke&quot;</span><span class="p">,</span> <span class="s">&quot;ncmbke&quot;</span><span class="p">,</span> <span class="s">&quot;ncwbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;ndbke&quot;</span><span class="p">,</span> <span class="s">&quot;nmibke&quot;</span><span class="p">,</span> <span class="s">&quot;ohnbke&quot;</span><span class="p">,</span> <span class="s">&quot;ohsbke&quot;</span><span class="p">,</span> <span class="s">&quot;okebke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;oknbke&quot;</span><span class="p">,</span> <span class="s">&quot;okwbke&quot;</span><span class="p">,</span> <span class="s">&quot;orbke&quot;</span><span class="p">,</span> <span class="s">&quot;paebke&quot;</span><span class="p">,</span> <span class="s">&quot;pambke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;pawbke&quot;</span><span class="p">,</span> <span class="s">&quot;prbke&quot;</span><span class="p">,</span> <span class="s">&quot;ribke&quot;</span><span class="p">,</span> <span class="s">&quot;scbke&quot;</span><span class="p">,</span> <span class="s">&quot;sdbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;tnebke&quot;</span><span class="p">,</span> <span class="s">&quot;tnmbke&quot;</span><span class="p">,</span> <span class="s">&quot;tnwbke&quot;</span><span class="p">,</span> <span class="s">&quot;txebke&quot;</span><span class="p">,</span> <span class="s">&quot;txnbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;txsbke&quot;</span><span class="p">,</span> <span class="s">&quot;txwbke&quot;</span><span class="p">,</span> <span class="s">&quot;utbke&quot;</span><span class="p">,</span> <span class="s">&quot;vtbke&quot;</span><span class="p">,</span> <span class="s">&quot;vibke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;vaebke&quot;</span><span class="p">,</span> <span class="s">&quot;vawbke&quot;</span><span class="p">,</span> <span class="s">&quot;waebke&quot;</span><span class="p">,</span> <span class="s">&quot;wawbke&quot;</span><span class="p">,</span> <span class="s">&quot;wvnbke&quot;</span><span class="p">,</span>
+                            <span class="s">&quot;wvsbke&quot;</span><span class="p">,</span> <span class="s">&quot;wiebke&quot;</span><span class="p">,</span> <span class="s">&quot;wiwbke&quot;</span><span class="p">,</span> <span class="s">&quot;wybke&quot;</span><span class="p">)</span>
+    <span class="c"># 0. PRE-PROCESS: Force all inputs to string type.</span>
+    <span class="n">district</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">district</span><span class="p">)</span>
+    <span class="n">office</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">office</span><span class="p">)</span>
+    <span class="n">year</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">year</span><span class="p">)</span>
+    <span class="n">docket_number</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">docket_number</span><span class="p">)</span>
+    <span class="n">type_code</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">type_code</span><span class="p">)</span>
+    <span class="c"># 1. PROCESS THE TYPE-CODE</span>
+    <span class="c"># Convert the type code.</span>
+    <span class="k">if</span> <span class="n">type_code</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">type_code_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">type_code</span><span class="o">=</span><span class="n">type_code_dict</span><span class="p">[</span><span class="n">type_code</span><span class="p">]</span>
+    <span class="c"># Check if the user has inputed a valid type_code.</span>
+    <span class="c"># (&#39;ap&#39; has not been implemented&#39;)</span>
+    <span class="k">if</span> <span class="n">type_code</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s">&#39;cr&#39;</span><span class="p">,</span> <span class="s">&#39;cv&#39;</span><span class="p">,</span> <span class="s">&#39;bk&#39;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span> <span class="p">(</span><span class="s">&#39;Invalid type-code.&#39;</span><span class="p">)</span>
+    <span class="c">#Using the type-code, we determine the correct suffix.</span>
+    <span class="k">if</span> <span class="n">type_code</span> <span class="ow">in</span> <span class="p">(</span><span class="s">&#39;cr&#39;</span><span class="p">,</span> <span class="s">&#39;cv&#39;</span><span class="p">):</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s">&#39;ce&#39;</span>
+    <span class="k">elif</span> <span class="n">type_code</span> <span class="ow">in</span> <span class="s">&#39;bk&#39;</span><span class="p">:</span>
+        <span class="n">suffix</span> <span class="o">=</span> <span class="s">&#39;ke&#39;</span>
+    <span class="c">#elif type_code in &#39;ap&#39;:</span>
+        <span class="c">#Appellate Cases not yet implemented.</span>
+    <span class="c"># 2. PROCESS THE DISTRICT NAME</span>
+    <span class="n">district</span><span class="o">=</span><span class="n">district</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+    <span class="n">court_id</span><span class="o">=</span><span class="s">&#39;&#39;</span>
+    <span class="c"># For fully written out district names, we attempt to</span>
+    <span class="c"># convert this into a useable PACER abbreviation.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="c"># Find the state.</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">state_to_code</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">district</span><span class="p">:</span>
+                <span class="n">court_id</span> <span class="o">=</span> <span class="n">state_to_code</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">court_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span> <span class="p">(</span><span class="s">&quot;Invalid &#39;district&#39; input;&quot;</span>
+                               <span class="o">+</span> <span class="s">&quot; could not determine the state in </span><span class="se">\&quot;</span><span class="s">&quot;</span>
+                               <span class="o">+</span> <span class="n">district</span> <span class="o">+</span><span class="s">&quot;</span><span class="se">\&quot;</span><span class="s">&quot;</span><span class="p">)</span>
+        <span class="c">#Find the district within the state.</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">district_dict</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span> <span class="ow">in</span> <span class="n">district</span><span class="p">:</span>
+                <span class="n">court_id</span> <span class="o">=</span> <span class="n">court_id</span> <span class="o">+</span> <span class="n">district_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">+</span><span class="n">suffix</span>
+                <span class="k">break</span>
+        <span class="c">#If the district is not fully written out, one last try.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">court_id</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&#39;district&#39;</span> <span class="ow">in</span> <span class="n">district</span> <span class="ow">and</span> <span class="s">&#39;columbia&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">district</span><span class="p">:</span>
+                <span class="n">court_id</span> <span class="o">=</span> <span class="n">court_id</span><span class="o">+</span><span class="s">&#39;d&#39;</span><span class="o">+</span><span class="n">suffix</span>
+            <span class="k">elif</span> <span class="s">&#39;bankruptcy&#39;</span> <span class="ow">in</span> <span class="n">district</span><span class="p">:</span>
+                <span class="n">court_id</span> <span class="o">=</span> <span class="n">court_id</span><span class="o">+</span><span class="s">&#39;b&#39;</span><span class="o">+</span><span class="n">suffix</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">court_id</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">court_id</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span> <span class="p">(</span><span class="s">&quot;Invalid &#39;district&#39; input;&quot;</span>
+                               <span class="o">+</span> <span class="s">&quot; could not determine the district in </span><span class="se">\&quot;</span><span class="s">&quot;</span>
+                               <span class="o">+</span> <span class="n">district</span> <span class="o">+</span><span class="s">&quot;</span><span class="se">\&quot;</span><span class="s">&quot;</span><span class="p">)</span>
+    <span class="c">#Process abbreviations.</span>
+    <span class="k">if</span> <span class="n">district_first</span><span class="p">:</span>
+        <span class="c"># The program converts the district input into a court_id.</span>
+        <span class="k">if</span> <span class="n">district</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;dc&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="c"># Single-district districts courts.</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">district</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">+</span><span class="s">&#39;dce&#39;</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="c"># Reverse the order of 4-character district codes</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">district</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span><span class="o">+</span><span class="n">district</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="n">suffix</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c"># Reverse the order of 3-character codes</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">district</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span><span class="o">+</span><span class="n">district</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">suffix</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c"># The program converts the district input into a court_id.</span>
+        <span class="k">if</span> <span class="n">district</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;dc&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span><span class="o">==</span><span class="mi">4</span><span class="p">:</span>
+            <span class="c"># Single-district districts courts.</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">district</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="s">&#39;dce&#39;</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">district</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="c"># Append the suffix to 3 or 4 letter districts.</span>
+            <span class="n">court_id</span> <span class="o">=</span> <span class="n">district</span> <span class="o">+</span> <span class="n">suffix</span>
+    <span class="c">#Raise an error if we have not recognized the court.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">court_id</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Invalid &#39;district&#39; input;&quot;</span>
+                         <span class="o">+</span> <span class="s">&quot; could not recognize </span><span class="se">\&quot;</span><span class="s">&quot;</span>
+                         <span class="o">+</span> <span class="n">district</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\&quot;</span><span class="s">&quot;</span><span class="p">)</span>
+    <span class="c"># 3. PROCESS YEAR</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">year</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="n">year</span> <span class="o">=</span> <span class="n">year</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">year</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Invalid &#39;year&#39; input;&quot;</span> <span class="o">+</span> <span class="s">&quot;could not recognize </span><span class="se">\&quot;</span><span class="s">&quot;</span>
+                         <span class="o">+</span> <span class="n">year</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\&quot;</span><span class="s">&quot;</span><span class="p">)</span>
+    <span class="c"># 4. SANITY CHECKS</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">office</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;&#39;office&#39; cannot be more than 1 character&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">type_code</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Final &#39;type-code&#39; cannot be more than 2 characters&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">docket_number</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;&#39;docket_number&#39; cannot be more than 5 characters&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">type_code</span> <span class="o">==</span> <span class="s">&quot;cv&quot;</span> <span class="ow">or</span> <span class="n">type_code</span> <span class="o">==</span> <span class="s">&quot;cr&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">court_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">district_court_ids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span> <span class="o">+</span> <span class="n">court_id</span> <span class="o">+</span> <span class="s">&quot;&#39; is an invalid district &quot;</span>
+                             <span class="o">+</span> <span class="s">&quot;court_id.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">type_code</span> <span class="o">==</span> <span class="s">&quot;br&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">court_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">bankruptcy_court_ids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span> <span class="o">+</span> <span class="n">court_id</span> <span class="o">+</span> <span class="s">&quot;&#39; is an invalid bankruptcy &quot;</span> <span class="o">+</span>
+                             <span class="s">&quot;court_id.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">court_id</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;&#39;&quot;</span> <span class="o">+</span> <span class="n">court_id</span> <span class="o">+</span> <span class="s">&quot;&#39; is not from a valid state/region&quot;</span><span class="p">)</span>
+    <span class="c"># 5. COMBINE INFORMATION</span>
+    <span class="c"># Return both the court_id and the case_number as a tuple.</span>
+    <span class="n">case_no</span> <span class="o">=</span> <span class="n">office</span> <span class="o">+</span> <span class="s">&quot;:&quot;</span> <span class="o">+</span> <span class="n">year</span> <span class="o">+</span> <span class="s">&quot;-&quot;</span> <span class="o">+</span> <span class="n">type_code</span> <span class="o">+</span> <span class="s">&quot;-&quot;</span> <span class="o">+</span> <span class="n">docket_number</span>
+    <span class="k">if</span> <span class="n">type_code</span> <span class="o">!=</span> <span class="s">&#39;ap&#39;</span><span class="p">:</span>
+        <span class="n">region</span> <span class="o">=</span> <span class="n">court_id</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">case_no</span><span class="p">,</span> <span class="n">court_id</span><span class="p">,</span> <span class="n">region</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pacer_lib 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

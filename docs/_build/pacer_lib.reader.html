@@ -1,0 +1,532 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pacer_lib.reader &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="index.html" />
+    <link rel="next" title="FAQ" href="FAQ.html" />
+    <link rel="prev" title="pacer_lib.scraper" href="pacer_lib.scraper.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="FAQ.html" title="FAQ"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.scraper.html" title="pacer_lib.scraper"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-pacer_lib.reader">
+<span id="pacer-lib-reader"></span><h1>pacer_lib.reader<a class="headerlink" href="#module-pacer_lib.reader" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="docket-parser">
+<h2>docket_parser<a class="headerlink" href="#docket-parser" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pacer_lib.reader.docket_parser">
+<em class="property">class </em><tt class="descclassname">pacer_lib.reader.</tt><tt class="descname">docket_parser</tt><big>(</big><em>docket_path='./results/local_docket_archive'</em>, <em>output_path='./results'</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a docket_parser object that provides functions which allow you to
+quickly load .html PACER docket sheets from the specified docket_path 
+parse metadata (about both the download of the docket as well as the 
+characteristics of the case), and convert into a machine-readable format
+(CSV)</p>
+<p>This object is built on top of BeautifulSoup 4.</p>
+<p><strong>Keyword Arguments:</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">docket_path</span></tt>: which specifies a relative path to the storage of dockets
+(i.e., input data); dockets shoudl be in .html format</li>
+<li><tt class="docutils literal"><span class="pre">output_path</span></tt>: which specifies a relative path to the folder where output
+should be written. If this folder does not exist, it will be created. If the
+two subfolders (<tt class="docutils literal"><span class="pre">/case_meta/</span></tt> and <tt class="docutils literal"><span class="pre">/download_meta</span></tt>) do not exist within
+the output_path, then they will also be created.</li>
+</ul>
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.extract_all_meta">
+<tt class="descname">extract_all_meta</tt><big>(</big><em>data</em>, <em>debug=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.extract_all_meta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.extract_all_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns two dictionaries, one that has download_meta and one that 
+contains meta extracted from the docket. <tt class="docutils literal"><span class="pre">extract_all_meta()</span></tt> runs 
+<tt class="docutils literal"><span class="pre">extract_case_meta()</span></tt>, <tt class="docutils literal"><span class="pre">extract_lawyer_meta()</span></tt> and 
+<tt class="docutils literal"><span class="pre">extract_download_meta()</span></tt> on <tt class="docutils literal"><span class="pre">data</span></tt> (a string literal of an .html
+document). It returns two dictionaries (one containing download_meta
+and one containing both case_meta and lawyer_meta) because download_meta
+and case_meta have overlapping information.</p>
+<p>If debug is not turned on, extract_all_meta will ignore any
+error output from the sub functions (e.g., if the functions cannot find
+the relevant sections).</p>
+<p><strong>Output Documentation</strong>
+See the output documentation of  <tt class="docutils literal"><span class="pre">extract_case_meta()</span></tt>, 
+<tt class="docutils literal"><span class="pre">extract_lawyer_meta()</span></tt> and <tt class="docutils literal"><span class="pre">extract_download_meta()</span></tt>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.extract_case_meta">
+<tt class="descname">extract_case_meta</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.extract_case_meta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.extract_case_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary of case information (e.g., case_name, demand,
+nature of suit, jurisdiction, assigned judge, etc.) extracted from
+an .html docket (passed as a string literal through <tt class="docutils literal"><span class="pre">data</span></tt>). This
+information should be available in all dockets downloaded from PACER.</p>
+<p>This information may overlap with information from 
+<tt class="docutils literal"><span class="pre">extract_download_meta()</span></tt>, but it is technically extracted from a 
+different source (the docket sheet, rather than the results page of the
+PACER Case Locator).</p>
+<p>In consolidated cases, there is information about the
+lead case, and a link. We extract any links in the case_meta section of
+the document and store it in the dictionary with the key <em>meta_links</em>.</p>
+<p>There are some encoding issues with characters such as Ã that we have
+tried to address, but may need to be improved in the future.</p>
+<p>If <tt class="docutils literal"><span class="pre">extract_case_meta()</span></tt> cannot find the case_meta section of the
+docket, it will return a dictionary with a single key, 
+<em>Error_case_meta</em>.</p>
+<p><strong>Output Documentation</strong>
+Please note that <tt class="docutils literal"><span class="pre">extract_case_meta</span></tt> does common cleaning and then
+treats each (text):(text) line as a key:value pair, so this 
+documentation only documents the most common keys that we have observed.</p>
+<p>These keys are, generally, self-explanatory and are only listed for
+convenience.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Case</span> <span class="pre">name</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Assigned</span> <span class="pre">to</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Referred</span> <span class="pre">to</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Demand</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Case</span> <span class="pre">in</span> <span class="pre">other</span> <span class="pre">court</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Cause</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Date</span> <span class="pre">Filed</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Date</span> <span class="pre">Terminated</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Jury</span> <span class="pre">Demand</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Nature</span> <span class="pre">of</span> <span class="pre">Suit</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Jurisdiction</span></tt></li>
+</ul>
+<p>Special keys:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Member</span> <span class="pre">case</span></tt>: the existence of this key indicates that this is 
+probably the lead case of a consolidated case.</li>
+<li><tt class="docutils literal"><span class="pre">Lead</span> <span class="pre">case</span></tt>: the existence of this key indicates that this is
+probably a member case of a consolidated case.</li>
+<li><tt class="docutils literal"><span class="pre">meta_links</span></tt>: this will only exists if there are links in the
+case_meta section of the PACER docket.</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.extract_download_meta">
+<tt class="descname">extract_download_meta</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.extract_download_meta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.extract_download_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary that contains all of the downloadmeta that was
+stored by <tt class="docutils literal"><span class="pre">pacer_lib.scraper()</span></tt> at the time of download (i.e., the
+<em>detailed_info</em> json object that is commented out at the top of new
+downloads from PACER). This is meant to help improve reproducibility.</p>
+<p><em>detailed_info</em> is an add-on in later versions of pacer_lib that
+records case-level data from the search screen (date_closed, link, 
+nature of suit, case-name, etc.) as well as the date and time of
+download.</p>
+<p>In earlier versions of pacer_lib (i.e., released as 
+pacer_scraper_library), this was stored as a list and did not include
+the date and time of download. <tt class="docutils literal"><span class="pre">extract_download_meta()</span></tt> can also
+handle these <em>detailed_info</em> objects.</p>
+<p>If there is no <em>detailed_info</em>, the function returns a dictionary with
+the key &#8216;Error_download_meta&#8217;.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">data</span></tt>: should be a string, read from a .html file.</li>
+</ul>
+<p><strong>Output Documentation</strong>
+Unless otherwise noted, all of these are collected from the PACER
+Case Locator results page. This is documented as 
+<tt class="docutils literal"><span class="pre">key</span></tt>: description of value.</p>
+<p>These terms are found in documents downloaded by any version of pacer_lib:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">searched_case_no</span></tt>: the case number that was passed to pacer_lib.scraper(),
+this is recorded to ensure reproducibility and comes from pacer_lib. 
+This is not found on the PACER Case Locator results page.</li>
+<li><tt class="docutils literal"><span class="pre">court_id</span></tt>: the abbreviation for the court the case was located in</li>
+<li><tt class="docutils literal"><span class="pre">case_name</span></tt>: the name of the case, as recorded by PACER</li>
+<li><tt class="docutils literal"><span class="pre">nos</span></tt>: a code for &#8220;Nature of Suit&#8221;</li>
+<li><tt class="docutils literal"><span class="pre">date_filed</span></tt>: the date the case was filed, as recorded by PACER</li>
+<li><tt class="docutils literal"><span class="pre">date_closed</span></tt>: the date the case was closed, as recorded by PACER</li>
+<li><tt class="docutils literal"><span class="pre">link</span></tt>: a link to the docket</li>
+</ul>
+<p>These are only in documents downloaded with newer versions of 
+pacer_lib:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">downloaded</span></tt>: string that describes the time the docket was 
+downloaded by pacer_lib. This is not found on the PACER Case Locator 
+results page. (Format: yyyy-mm-dd,hh:mm:ss)</li>
+<li><tt class="docutils literal"><span class="pre">listed_case_no</span></tt>: string that describes the preferred PACER case no
+for this case (as opposed to the query we submitted)</li>
+<li><tt class="docutils literal"><span class="pre">result_no</span></tt>: which result was the case on the PACER Case Locator
+results page.</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.extract_lawyer_meta">
+<tt class="descname">extract_lawyer_meta</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.extract_lawyer_meta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.extract_lawyer_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary of information about the plaintiff, defendant and
+their lawyers extracted from an .html docket (passed as a string literal
+through <tt class="docutils literal"><span class="pre">data</span></tt>).</p>
+<p>At the moment, <tt class="docutils literal"><span class="pre">extract_lawyer_meta()</span></tt> only handles the most common
+listing (i.e., if there is one listing for plaintiff and one listing
+for defendant). If there is more than one set of plaintiffs or
+defendants (e.g., in a class action suit), the function will return a 
+dictionary with a single key <em>Error_lawyer_meta</em>. This function will not
+handle movants and will probably not handle class-action cases.</p>
+<p>In dockets downloaded from older versions of pacer_lib 
+(e.g., pacer_scraper_library), lawyer information was not requested so
+the dockets will not contain any lawyer_meta to be extracted.</p>
+<p><strong>Output Documentation</strong>
+This is documented as <tt class="docutils literal"><span class="pre">key</span></tt>: description of value.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">plaintiffs</span></tt>: list of the names of plaintiffs</li>
+<li><tt class="docutils literal"><span class="pre">defendants</span></tt>: list of the names of defendants</li>
+<li><tt class="docutils literal"><span class="pre">plaintiffs_attorneys</span></tt>: list of the name of attorneys representing
+the plaintiffs</li>
+<li><tt class="docutils literal"><span class="pre">defendants_attorneys</span></tt>: list of the name of attorneys representing 
+the defendants</li>
+<li><tt class="docutils literal"><span class="pre">plaintiffs_attorneys_details</span></tt>: string that contains the cleaned
+output of all plaintiff lawyer data (e.g., firm, address, email, etc.)
+that can be further cleaned in the future.</li>
+<li><tt class="docutils literal"><span class="pre">defendants_attorneys_details</span></tt>: string that contains the cleaned
+output of all defendant lawyer data (e.g., firm, address, email, etc.)
+that can be further cleaned in the future.</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.parse_data">
+<tt class="descname">parse_data</tt><big>(</big><em>data</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.parse_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.parse_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of all of the docket entries in <tt class="docutils literal"><span class="pre">data</span></tt>, which should be
+a string literal. BeautifulSoup is useed to parse a .html docket file 
+(pass as a string literal through <tt class="docutils literal"><span class="pre">data</span></tt>) into a list
+of docket entries. Each docket entry is also a list.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">data</span></tt>: should be a string, read from a .html file.</li>
+</ul>
+<p><strong>Output Documentation</strong></p>
+<ol class="arabic simple" start="0">
+<li>date_filed</li>
+<li>document_number</li>
+<li>docket_description</li>
+<li>link_exist (this is a dummy to indicate the existence of a link)</li>
+<li>document_link (docket_number does not uniquely identify the docket
+entry so we also create a separate unique identifier)</li>
+<li>unique_id (document_number is not a unique identifier so we create
+one based on the placement in the .html docket sheet)</li>
+</ol>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_parser.parse_dir">
+<tt class="descname">parse_dir</tt><big>(</big><em>overwrite=True</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_parser.parse_dir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_parser.parse_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run <tt class="docutils literal"><span class="pre">parse_data()</span></tt> and <tt class="docutils literal"><span class="pre">extract_all_meta()</span></tt> on each file in the 
+docket_path folder and writes the output to the output_path.</p>
+<p><strong>Output Documentation</strong>
+This function returns nothing.</p>
+<p><strong>File documentation</strong>
+The docket entries of each docket are stored as a .csv in a folder
+&#8216;processed_dockets&#8217;. The filename of the csv indicates the source docket
+and the columns represent (in order):</p>
+<ol class="arabic simple" start="0">
+<li>date_filed</li>
+<li>document_number</li>
+<li>docket_description</li>
+<li>link_exist (this is a dummy to indicate the existence of a link)</li>
+<li>document_link (docket_number does not uniquely identify the docket
+entry so we also create a separate unique identifier)</li>
+<li>unique_id (document_number is not a unique identifier so we create
+one based on the placement in the .html docket sheet)</li>
+</ol>
+<p>The download meta and case and lawyer meta information of each docket 
+is stored as a JSON-object in the sub-folders 
+&#8216;processed_dockets_meta/download_meta/&#8217; and
+&#8216;processed_dockets_meta/case_meta/&#8217; within the output path. The files
+indicate the source docket and are prefixed by <strong>download_meta_</strong> and
+<strong>case_meta_</strong>, respectively.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="docket-processor">
+<h2>docket_processor<a class="headerlink" href="#docket-processor" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pacer_lib.reader.docket_processor">
+<em class="property">class </em><tt class="descclassname">pacer_lib.reader.</tt><tt class="descname">docket_processor</tt><big>(</big><em>processed_path='./results/processed_dockets'</em>, <em>output_path='./results/'</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a <tt class="docutils literal"><span class="pre">docket_processor()</span></tt> object that allows for keyword and boolean
+searching of docket entries from dockets specified in <em>processed_path</em>. 
+<tt class="docutils literal"><span class="pre">docket_processor</span></tt> relies on the use of <cite>docket_parser`</cite> to
+parse .html PACER dockets into structured .csv, although it is theoretically
+possible (but quite tedious) to independently bring dockets into compliance
+for use with <tt class="docutils literal"><span class="pre">docket_processor</span></tt>.</p>
+<p>This will give you a set of documents (and their associated links) for
+download (and which can be passed to pacer_lib.scraper()).</p>
+<p>The object then outputs a docket-level or consolidated .csv that describes
+all documents that meet the search criteria (stored in <em>hit_list</em>).</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">processed_path</span></tt> points to the folder containing .csv docket files</li>
+<li><tt class="docutils literal"><span class="pre">output_path</span></tt> points to the folder where you would like output to be
+stored. Note that the output will actually be stored in a subfolder of the
+<em>output_path</em> called <em>/docket_hits/</em>. If the folders do not exist, they will
+be created.</li>
+</ul>
+<dl class="method">
+<dt id="pacer_lib.reader.docket_processor.search_dir">
+<tt class="descname">search_dir</tt><big>(</big><em>require_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>exclude_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>case_sensitive=False</em>, <em>within=0</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor.search_dir"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor.search_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs <tt class="docutils literal"><span class="pre">search_docket()</span></tt> on each docket in <em>self.processed_path</em> and
+adds hits to <em>self.hit_list</em> as a key value pair 
+<em>case_number</em> : <em>[docket entries]</em>, where <em>case_number</em> is taken from the
+filename and <em>[docket_entries]</em> is a list of docket entries (which are 
+also lists) that meet the search criteria.</p>
+<p>The search criteria is specified by <em>require_term</em>, <em>exclude_term</em>, 
+<em>case_sensitive</em> and <em>within</em>, such that:</p>
+<ul class="simple">
+<li>if <em>within</em> !=0, all searches are constrained to the first x
+characters of the text, where x = <em>within</em></li>
+<li>all strings in the list <em>require_term</em> are found in <em>text</em> 
+(or the first x charactersm, if <em>within</em> is used)</li>
+<li>and, no strings in the list <em>exclude_term</em> are found in 
+<em>text</em> (or the first x charactersm, if <em>within</em> is used)</li>
+<li>if <em>case_sensitive</em> =True, then the search is case sensitive</li>
+</ul>
+<p>Returns nothing.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_processor.search_docket">
+<tt class="descname">search_docket</tt><big>(</big><em>docket</em>, <em>require_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>exclude_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>case_sensitive=False</em>, <em>within=0</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor.search_docket"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor.search_docket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a lists of docket entries that match the search criteria.
+Docket entries are lists that should have the same structure as 
+described in docket_parser, i.e. in order:</p>
+<ol class="arabic simple" start="0">
+<li>date_filed</li>
+<li>document_number</li>
+<li>docket_description</li>
+<li>link_exist (this is a dummy to indicate the existence of a link)</li>
+<li>document_link (docket_number does not uniquely identify the docket
+entry so we also create a separate unique identifier)</li>
+<li>unique_id (document_number is not a unique identifier so we create
+one based on the placement in the .html docket sheet)</li>
+</ol>
+<p>The docket is specified by the argument <em>docket</em> and searched for 
+in the <em>self.processed_path</em> folder.</p>
+<p>The search criteria is specified by <em>require_term</em>, <em>exclude_term</em>, 
+<em>case_sensitive</em> and <em>within</em>, such that:</p>
+<ul class="simple">
+<li>if <em>within</em> !=0, all searches are constrained to the first x
+characters of the text, where x = <em>within</em></li>
+<li>all strings in the list <em>require_term</em> are found in <em>text</em> 
+(or the first x charactersm, if <em>within</em> is used)</li>
+<li>and, no strings in the list <em>exclude_term</em> are found in 
+<em>text</em> (or the first x charactersm, if <em>within</em> is used)</li>
+<li>if <em>case_sensitive</em> =True, then the search is case sensitive</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_processor.search_text">
+<tt class="descname">search_text</tt><big>(</big><em>text</em>, <em>require_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>exclude_term=</em><span class="optional">[</span><span class="optional">]</span>, <em>case_sensitive=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor.search_text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor.search_text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a boolean indicating if all criteria are satisified in
+<em>text</em>. The criteria are determined in this way:</p>
+<ul class="simple">
+<li>all strings in the list <em>require_term</em> are found in <em>text</em></li>
+<li>and, no strings in the list <em>exclude_term</em> are found in 
+<em>text</em></li>
+</ul>
+<p>If you pass a string instead of a list to either <em>require_term</em> or 
+<em>exclude_term</em>, <tt class="docutils literal"><span class="pre">search_text()</span></tt> will convert it to a list.</p>
+<p>This search is, by default case-insensitive, but you can turn on
+case-sensitive search through <em>case_sensitive</em>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_processor.write_all_matches">
+<tt class="descname">write_all_matches</tt><big>(</big><em>suffix</em>, <em>overwrite_flag=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor.write_all_matches"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor.write_all_matches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Writes all of the matches found in the <em>self.hit_list</em> dictionary to 
+a single .csv file (<strong>all_match__[suffix].csv</strong>) in the <em>self.output_path</em>. 
+The columns of the .csv are (in order):</p>
+<ol class="arabic simple" start="0">
+<li>case_number (as defined by the source .csv)</li>
+<li>date_filed</li>
+<li>document_number</li>
+<li>docket_description</li>
+<li>link_exist (this is a dummy to indicate the existence of a link)</li>
+<li>document_link (docket_number does not uniquely identify the docket
+entry so we also create a separate unique identifier)</li>
+<li>unique_id (document_number is not a unique identifier so we create
+one based on the placement in the .html docket sheet)</li>
+</ol>
+<p>There is a flag for overwriting.</p>
+<p>You cannot use <tt class="docutils literal"><span class="pre">/</span> <span class="pre">\</span>&nbsp; <span class="pre">%</span> <span class="pre">*</span> <span class="pre">:</span> <span class="pre">|</span> <span class="pre">&quot;</span> <span class="pre">&lt;</span> <span class="pre">&gt;</span> <span class="pre">.</span> <span class="pre">_</span></tt> in the suffix.</p>
+<p>Returns nothing.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.docket_processor.write_individual_matches">
+<tt class="descname">write_individual_matches</tt><big>(</big><em>suffix</em>, <em>overwrite_flag=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#docket_processor.write_individual_matches"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.docket_processor.write_individual_matches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Writes all of the matches in the <em>self.hit_list</em> dictionary to one .csv
+file per docket sheet (determined by the source .csv) in a folder named
+after the suffix. To distinguish
+from the source .csv, they are prefixed by a ^. They are also suffixed 
+to allow for multiple searches of the same source .csv.</p>
+<p>Suffix is required and if the same suffix is specified, it will 
+overwrite previous searches if the overwrite flag is turned on.
+(It will delete all of the old files in the suffix folder.)</p>
+<p>You cannot use <tt class="docutils literal"><span class="pre">/</span> <span class="pre">\</span>&nbsp; <span class="pre">%</span> <span class="pre">*</span> <span class="pre">:</span> <span class="pre">|</span> <span class="pre">&quot;</span> <span class="pre">&lt;</span> <span class="pre">&gt;</span> <span class="pre">.</span> <span class="pre">_</span></tt> in the suffix.</p>
+<p>Returns nothing.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="document-sorter">
+<h2>document_sorter<a class="headerlink" href="#document-sorter" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pacer_lib.reader.document_sorter">
+<em class="property">class </em><tt class="descclassname">pacer_lib.reader.</tt><tt class="descname">document_sorter</tt><big>(</big><em>docket_path='./results/local_docket_archive'</em>, <em>document_path='./results/local_document_archive'</em>, <em>output_path='./results'</em>, <em>searchable_criteria='court'</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Not implemented yet. Sorry.</p>
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.convert_PDF_to_text">
+<tt class="descname">convert_PDF_to_text</tt><big>(</big><em>filename</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.convert_PDF_to_text"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.convert_PDF_to_text" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a file to text and save it in the text_output_path</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.convert_all">
+<tt class="descname">convert_all</tt><big>(</big><em>overwrite=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.convert_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.convert_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>For files in the document path, use convert_PDF_to_text if it
+has not been converted before. Determine if a file is searchable
+or not.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.count">
+<tt class="descname">count</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.count"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Count the file_index</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.export_file_index">
+<tt class="descname">export_file_index</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.export_file_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.export_file_index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save the file_index to a file</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.flag_searchable">
+<tt class="descname">flag_searchable</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.flag_searchable"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.flag_searchable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flag according to self.flags()
+Move files to a folder (make this an option)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.reader.document_sorter.set_flag">
+<tt class="descname">set_flag</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pacer_lib/reader.html#document_sorter.set_flag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.reader.document_sorter.set_flag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a criteria to the flagging process.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">pacer_lib.reader</a><ul>
+<li><a class="reference internal" href="#docket-parser">docket_parser</a></li>
+<li><a class="reference internal" href="#docket-processor">docket_processor</a></li>
+<li><a class="reference internal" href="#document-sorter">document_sorter</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="pacer_lib.scraper.html"
+                        title="previous chapter">pacer_lib.scraper</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="FAQ.html"
+                        title="next chapter">FAQ</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/pacer_lib.reader.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="FAQ.html" title="FAQ"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.scraper.html" title="pacer_lib.scraper"
+             >previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

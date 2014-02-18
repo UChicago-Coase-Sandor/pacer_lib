@@ -1,0 +1,442 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tutorial &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="index.html" />
+    <link rel="next" title="pacer_lib.scraper" href="pacer_lib.scraper.html" />
+    <link rel="prev" title="Installation" href="Installation.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.scraper.html" title="pacer_lib.scraper"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Installation.html" title="Installation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<p>We can&#8217;t document every single use-case, but in this section, we will show code
+examples for some common (in our mind, at least) tasks to give you an idea of
+how to use <em>pacer_lib</em>. In addition, we&#8217;ll make note of lower-level functions
+that you can also access in case you need more customized functionality.</p>
+<div class="section" id="downloading-dockets">
+<h2>1. Downloading Dockets<a class="headerlink" href="#downloading-dockets" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="code-example">
+<h3>Code example<a class="headerlink" href="#code-example" title="Permalink to this headline">¶</a></h3>
+<p>Downloading one document:</p>
+<div class="highlight-python"><pre>from pacer_lib.scraper import search_agent()
+
+court_id = 'almdce'
+case_number = '2:00-cv-00084'
+
+# Login
+s = search_agent("[Username]", "[Password]")
+
+# Download
+s.download_case_docket(court_id, case_number )</pre>
+</div>
+<p>Downloading Multiple Documents:</p>
+<div class="highlight-python"><pre>from pacer_lib.scraper import search_agent()
+
+# Login the search_agent into PACER
+s = search_agent("[Username]", "[Password]")
+
+cases = [('almdce', '2:00-cv-00084'),
+         ('azdce', '2:98-cv-00020'),
+         ('cacdce', '2:95-cv-03731')]
+
+# Download the case dockets to ./results/local_docket_archive/
+for court_id, case_num in cases:
+    s.download_case_docket(court_id, case_num)</pre>
+</div>
+<p>As you can see, before you&#8217;ll begin you will need:</p>
+<ul class="simple">
+<li>a valid PACER username and password</li>
+<li>court ids and case numbers in a PACER case-number format for cases that
+you want to download</li>
+</ul>
+</div>
+<div class="section" id="pacer-username-and-password">
+<h3>PACER username and password<a class="headerlink" href="#pacer-username-and-password" title="Permalink to this headline">¶</a></h3>
+<p>You&#8217;ll need to get that <a class="reference external" href="http://www.pacer.gov/register.html">here</a>.</p>
+<p>For most purposes, you will register for a &#8220;PACER - Case Search Only
+Registration&#8221;</p>
+</div>
+<div class="section" id="court-id">
+<h3>Court Id<a class="headerlink" href="#court-id" title="Permalink to this headline">¶</a></h3>
+<p>This is an identifier for the court that you are searching. Usually, this is not
+particularly difficult to figure out.</p>
+<p>For example, the court id <strong>almdce</strong> is made up of three parts:</p>
+<ul class="simple">
+<li><strong>al</strong> &#8211; the state abbreviation for &#8220;Alabama&#8221;</li>
+<li><strong>md</strong> &#8211; the abbreviation for &#8220;Middle District&#8221;</li>
+<li><strong>ce</strong> &#8211; not sure what this stands for, but it&#8217;s what PACER wants</li>
+</ul>
+<p>For the equivalent bankruptcy court, <strong>md</strong> (Middle District) is changed to
+<strong>mb</strong> (Middle District Bankruptcy). If the state only has a single district,
+then the abbreviation is just <strong>d</strong>.</p>
+<p>For example, the Massachusetts district court&#8217;s court id is <strong>madce</strong>.</p>
+<p>Appellate courts and the Supreme Court have not been implemented yet in
+<em>pacer_lib</em> yet.</p>
+<p>To see a listing of all of the courts on PACER, you can go <a class="reference external" href="http://www.pacer.gov/cgi-bin/links.pl">to this page</a>.</p>
+</div>
+<div class="section" id="pacer-case-numbers">
+<h3>PACER Case-Numbers<a class="headerlink" href="#pacer-case-numbers" title="Permalink to this headline">¶</a></h3>
+<p>If you login to the <a class="reference external" href="https://pcl.uscourts.gov/search">PACER Case Locator</a>,
+they will tell you that any of these formats can be used:</p>
+<ul class="simple">
+<li>yy-nnnnn</li>
+<li>yy-tp-nnnnn</li>
+<li>yy tp nnnnn</li>
+<li>yytpnnnnn</li>
+<li>o:yy-nnnnn</li>
+<li>o:yy-tp-nnnnn</li>
+<li>o:yy tp nnnnn</li>
+<li>o:yytpnnnnn</li>
+</ul>
+<p>where:</p>
+<ul class="simple">
+<li><em>yy</em> is the case-year (2 or 4 digits)</li>
+<li><em>nnnnn</em> is the case-number (up to 5 digits)</li>
+<li><em>tp</em> is the case type (e.g., &#8216;cv&#8217;, &#8216;cr&#8217;, &#8216;bk&#8217;, etc.)</li>
+<li><em>o</em> is the office where the case was filed (1 digit)</li>
+</ul>
+<p><em>pacer_lib</em> works best with the clearest and mostly heavily delimited version:</p>
+<ul class="simple">
+<li><strong>o:yy-tp-nnnnn</strong></li>
+</ul>
+<p>We use 2-digit years and we appended leading zeros to the <em>nnnnn</em> section
+if the case-number is less than 5 digits long.</p>
+</div>
+<div class="section" id="downloaded-filename">
+<h3>Downloaded Filename<a class="headerlink" href="#downloaded-filename" title="Permalink to this headline">¶</a></h3>
+<p>Files downloaded by <tt class="docutils literal"><span class="pre">scraper.search_agent.download_case_docket()</span></tt> are saved
+in the format: (court_id)_(case_num).html with colons replaced by plus signs,
+e.g., (&#8216;almdce&#8217;, &#8216;2:00-cv-00084&#8217;) is saved as &#8216;almdce_2+00-cv-00084.html&#8217;.</p>
+</div>
+<div class="section" id="advanced-usage">
+<h3>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Permalink to this headline">¶</a></h3>
+<p>For more information, look at the documentation at the object and
+function reference for <tt class="docutils literal"><span class="pre">pacer_lib.scraper</span></tt>. Here are some
+suggestions about how to do more complicated docket downloading:</p>
+<ul class="simple">
+<li>If you want to make your own searches you can use
+<tt class="docutils literal"><span class="pre">search_agent.search_case_locator()</span></tt> to create your own searches with
+other parameters.</li>
+<li>Once you have created your own searches and determined which dockets you
+want to download, you can use <tt class="docutils literal"><span class="pre">search_agent.request_docket_sheet()</span></tt> to
+download the docket.</li>
+<li>If you need to craft your own POST request, you can code it yourself
+using <a class="reference external" href="http://docs.python-requests.org/en/latest/">Requests</a> or use
+<tt class="docutils literal"><span class="pre">search_agent.query_case_locator()</span></tt>.</li>
+</ul>
+<p>If you would like to create your own POST request and pass them to</p>
+</div>
+</div>
+<div class="section" id="parsing-downloaded-dockets">
+<h2>2. Parsing Downloaded Dockets<a class="headerlink" href="#parsing-downloaded-dockets" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Code example<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>We are normally interested in parsing an entire directory of dockets at once
+(an this has minimal costs as all of the dockets are already local):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pacer_lib.reader</span> <span class="kn">import</span> <span class="n">docket_parser</span>
+
+<span class="c"># initialize a default docket_parser() object</span>
+<span class="c"># the default values look for dockets in &#39;./results/local_docket_archive/&#39;</span>
+<span class="c"># and outputs to &#39;./results/processed_dockets/&#39;</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">docket_parser</span><span class="p">()</span>
+
+<span class="c"># extract all docket information and case meta from dockets in the input</span>
+<span class="c"># directory and save the data to the output directory</span>
+<span class="n">p</span><span class="o">.</span><span class="n">parse_dir</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>It is generally a bit unusual to just parse one file and you can always
+just parse the entire directory and find the parsed afterwards, but
+to prove that we can:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pacer_lib.reader</span> <span class="kn">import</span> <span class="n">docket_parser</span>
+
+<span class="c"># initialize a default docket_parser() object</span>
+<span class="c"># the default values look for dockets in</span>
+<span class="c"># &#39;./results/local_docket_archive/&#39;</span>
+<span class="c"># and outputs to &#39;./results/processed_dockets/&#39;</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">docket_parser</span><span class="p">()</span>
+
+<span class="c"># open a file, parse the file</span>
+
+<span class="nb">file</span> <span class="o">=</span> <span class="s">&#39;./results/local_docket_archive/almdce_2+00-cv-00084.html&#39;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="nb">file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">print</span> <span class="n">p</span><span class="o">.</span><span class="n">parse_data</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+    <span class="k">print</span> <span class="n">p</span><span class="o">.</span><span class="n">extract_all_meta</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="default-directories">
+<h3>Default Directories<a class="headerlink" href="#default-directories" title="Permalink to this headline">¶</a></h3>
+<p><tt class="docutils literal"><span class="pre">reader.docket_parser.parse_dir()</span></tt> will output to the default output
+directory. Unless otherwise specified, the  output directory will be
+&#8216;./results/&#8217;. Within this output directory, there will be two sub
+directories created:</p>
+<ul>
+<li><p class="first"><tt class="docutils literal"><span class="pre">/processed_dockets/</span></tt></p>
+<blockquote>
+<div><p>contains .csv documents that correspond to specific dockets</p>
+</div></blockquote>
+</li>
+<li><dl class="first docutils">
+<dt><tt class="docutils literal"><span class="pre">/processed_dockets_meta/</span></tt> which contains two additional directories:</dt>
+<dd><ul class="first last">
+<li><p class="first"><tt class="docutils literal"><span class="pre">/case_meta/</span></tt></p>
+<blockquote>
+<div><p><em>case_meta</em> refers to the header information about the docket
+entries, e.g., assigned judge, case name, jurisdiction, etc.
+It also includes information about the lawyers who are associated
+with the case.</p>
+</div></blockquote>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">/download_meta/</span></tt></p>
+<blockquote>
+<div><p><em>download_meta</em> refers to the information about the case that
+can be found on the PACER Case Locator results page. It also
+records when the docket was downloaded (only in newer versions).</p>
+</div></blockquote>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="notes">
+<h3>Notes<a class="headerlink" href="#notes" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="searching-parsed-dockets">
+<h2>3. Searching Parsed Dockets<a class="headerlink" href="#searching-parsed-dockets" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id2">
+<h3>Code example<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<p><strong>Example 1:</strong>
+After parsing all of the dockets using docket_parser, search for
+documents that are described with the word &#8220;judge&#8221; and &#8220;dismiss&#8221;
+but that does not include the word &#8220;foreign&#8221;:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pacer_lib.reader</span> <span class="kn">import</span> <span class="n">docket_processor</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">docket_processor</span><span class="p">()</span>
+<span class="n">r</span><span class="o">.</span><span class="n">search_dir</span><span class="p">(</span><span class="n">require_term</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;judge&#39;</span><span class="p">,</span> <span class="s">&#39;dismiss&#39;</span><span class="p">],</span>
+             <span class="n">exclude_term</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;foreign&#39;</span><span class="p">])</span>
+<span class="n">r</span><span class="o">.</span><span class="n">write_all_matches</span><span class="p">(</span><span class="s">&#39;firstsearch&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this code example, all document entries that match this criteria
+will be written into a single file called &#8216;all_match_firstsearch.csv&#8217;.</p>
+<p><strong>Example 2:</strong>
+Alternatively, search for the word &#8220;motion&#8221; in the first 10 characters
+of a document description and then write a result file for each case
+docket:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pacer_lib.reader</span> <span class="kn">import</span> <span class="n">docket_processor</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">docket_processor</span><span class="p">()</span>
+<span class="n">r</span><span class="o">.</span><span class="n">search_dir</span><span class="p">(</span><span class="n">require_term</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;motion&#39;</span><span class="p">],</span>
+             <span class="n">within</span><span class="o">=</span><span class="s">&#39;10&#39;</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">write_individual_matches</span><span class="p">(</span><span class="s">&#39;motion10&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this code example, all document entries from a single case will be
+written into a corresponding case file in a folder called
+&#8216;/docket_hits/&#8217; in the output path.</p>
+<p>For example, if the case <em>(almdce, 2:00-cv-00084)</em> has 3 documents that
+have the word &#8220;motion&#8221; in the first 10 characters of their document
+description, then those 3 document entries will be written a new file
+called &#8216;^almdce_2+00-cv-00084_motion10.csv&#8217;.</p>
+</div>
+<div class="section" id="id3">
+<h3>Advanced Usage<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>The function <tt class="docutils literal"><span class="pre">reader.docket_processor.search_dir()</span></tt> commits its search
+results to the <tt class="docutils literal"><span class="pre">reader.docket_processor.hit_list</span></tt> variable inclusively.
+This means that you can run <tt class="docutils literal"><span class="pre">reader.docket_processor.search_dir()</span></tt>
+several times if you want to simulate an <strong>OR</strong> boolean search:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pacer_lib.reader</span> <span class="kn">import</span> <span class="n">docket_processor</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">docket_processor</span><span class="p">()</span>
+<span class="n">r</span><span class="o">.</span><span class="n">search_dir</span><span class="p">(</span><span class="n">require_term</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;motion&#39;</span><span class="p">],</span>
+             <span class="n">within</span><span class="o">=</span><span class="s">&#39;10&#39;</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">search_dir</span><span class="p">(</span><span class="n">require_term</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;opinion&#39;</span><span class="p">],</span>
+             <span class="n">within</span><span class="o">=</span><span class="s">&#39;10&#39;</span><span class="p">)</span>
+<span class="n">r</span><span class="o">.</span><span class="n">write_individual_matches</span><span class="p">(</span><span class="s">&#39;motion10&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>AND</strong> searches and <strong>NOT</strong> searches, obviously, are built into the
+<tt class="docutils literal"><span class="pre">require_term</span></tt> and <tt class="docutils literal"><span class="pre">exclude_term</span></tt> arguments.</p>
+</div>
+</div>
+<div class="section" id="downloading-documents">
+<h2>4. Downloading Documents<a class="headerlink" href="#downloading-documents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id4">
+<h3>Code example<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<p>After parsing a docket, you can downloading a single document
+very simply:</p>
+<div class="highlight-python"><pre>from pacer_lib.scraper import search_agent()
+
+# Document information, can be taken from parsed csv
+case_filename = 'almdce_2+00-cv-00084'
+doc_no = '31'
+doc_link = 'https://ecf.almd.uscourts.gov/doc1/017149132'
+
+
+# Login
+s = search_agent("[Username]", "[Password]")
+
+# Download
+s.download_document(case_filename, doc_no, doc_link)</pre>
+</div>
+</div>
+<div class="section" id="id5">
+<h3>Advanced Usage<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<p>The actual document request and its raw response data (binary) can
+also be exposed using the <tt class="docutils literal"><span class="pre">scraper.search_agent.request_document()</span></tt>
+function.</p>
+</div>
+</div>
+<div class="section" id="sorting-documents">
+<h2>5. Sorting Documents<a class="headerlink" href="#sorting-documents" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id6">
+<h3>Code example<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<p>This code hasn&#8217;t been implemented yet.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Tutorial</a><ul>
+<li><a class="reference internal" href="#downloading-dockets">1. Downloading Dockets</a><ul>
+<li><a class="reference internal" href="#code-example">Code example</a></li>
+<li><a class="reference internal" href="#pacer-username-and-password">PACER username and password</a></li>
+<li><a class="reference internal" href="#court-id">Court Id</a></li>
+<li><a class="reference internal" href="#pacer-case-numbers">PACER Case-Numbers</a></li>
+<li><a class="reference internal" href="#downloaded-filename">Downloaded Filename</a></li>
+<li><a class="reference internal" href="#advanced-usage">Advanced Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#parsing-downloaded-dockets">2. Parsing Downloaded Dockets</a><ul>
+<li><a class="reference internal" href="#id1">Code example</a></li>
+<li><a class="reference internal" href="#default-directories">Default Directories</a></li>
+<li><a class="reference internal" href="#notes">Notes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#searching-parsed-dockets">3. Searching Parsed Dockets</a><ul>
+<li><a class="reference internal" href="#id2">Code example</a></li>
+<li><a class="reference internal" href="#id3">Advanced Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#downloading-documents">4. Downloading Documents</a><ul>
+<li><a class="reference internal" href="#id4">Code example</a></li>
+<li><a class="reference internal" href="#id5">Advanced Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#sorting-documents">5. Sorting Documents</a><ul>
+<li><a class="reference internal" href="#id6">Code example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Installation.html"
+                        title="previous chapter">Installation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="pacer_lib.scraper.html"
+                        title="next chapter">pacer_lib.scraper</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/Tutorial.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.scraper.html" title="pacer_lib.scraper"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Installation.html" title="Installation"
+             >previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

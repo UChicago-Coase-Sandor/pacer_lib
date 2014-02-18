@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Changelog &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="index.html" />
+    <link rel="prev" title="FAQ" href="FAQ.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="FAQ.html" title="FAQ"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="changelog">
+<h1>Changelog<a class="headerlink" href="#changelog" title="Permalink to this headline">¶</a></h1>
+<dl class="docutils">
+<dt>Version 2.3 (2014-02-18)</dt>
+<dd><p class="first">Made a bunch of mistakes, fixed them (mostly of the packaging variety) but
+burned through Versions 2.1 and 2.2.</p>
+<p>Changed the name of submodule pacer_lib.parser to pacer_lib.reader
+because of potential confusion.</p>
+<p>Implemented overwrite protection and suffixing for
+<tt class="docutils literal"><span class="pre">docket_processor.write_all_matches()</span></tt></p>
+<p>Implemented overwrite protection for
+<tt class="docutils literal"><span class="pre">docket_processor.write_individual_matches()</span></tt></p>
+<p class="last">Cleaned up the documentation.</p>
+</dd>
+</dl>
+<p>Version 2.0 (2014-02-17)</p>
+<blockquote>
+<div><p>Added <tt class="docutils literal"><span class="pre">parser</span></tt> sub-module, which includes the objects <tt class="docutils literal"><span class="pre">docket_parser()</span></tt>
+and <tt class="docutils literal"><span class="pre">docket_processor()</span></tt>, which brings scraping and docket parsing
+functionality to</p>
+<p><tt class="docutils literal"><span class="pre">document_sorter()</span></tt> outlined in <tt class="docutils literal"><span class="pre">parser</span></tt> sub-module but not yet
+implemented.</p>
+<p>Improved documentation, including the use of docstrings, Sphinx and hosting
+documentation on ReadTheDocs.org.</p>
+<p>Kevin Jiang added as maintainer.</p>
+</div></blockquote>
+<p>Version 1.0 (2014-01-08)</p>
+<blockquote>
+<div><p>Added <tt class="docutils literal"><span class="pre">scraper</span></tt> sub-module, which includes the object <tt class="docutils literal"><span class="pre">search_agent()</span></tt>
+that interfaces with the PACER Case Locator and allows the downloading of
+both dockets and documents.</p>
+<p>Added the functions <tt class="docutils literal"><span class="pre">disaggregate_docket_number()</span></tt> and <tt class="docutils literal"><span class="pre">gen_case_query</span></tt>,
+which handle specific query-creation issues in our PACER requests.</p>
+</div></blockquote>
+<dl class="docutils">
+<dt><em>pacer_scraper_library</em> Version 1.0a (2013-03-01)</dt>
+<dd>Original library; function based. For legacy users, you can access the
+undocumented and unsupported pacer_scraper_library <a class="reference external" href="https://pypi.python.org/pypi/pacer-scraper-library">here</a>.</dd>
+</dl>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="FAQ.html"
+                        title="previous chapter">FAQ</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/Changelog.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="FAQ.html" title="FAQ"
+             >previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

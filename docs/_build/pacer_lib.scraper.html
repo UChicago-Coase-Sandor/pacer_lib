@@ -1,0 +1,300 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pacer_lib.scraper &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="index.html" />
+    <link rel="next" title="pacer_lib.reader" href="pacer_lib.reader.html" />
+    <link rel="prev" title="Tutorial" href="Tutorial.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.reader.html" title="pacer_lib.reader"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Tutorial.html" title="Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-pacer_lib.scraper">
+<span id="pacer-lib-scraper"></span><h1>pacer_lib.scraper<a class="headerlink" href="#module-pacer_lib.scraper" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="search-agent">
+<h2>search_agent<a class="headerlink" href="#search-agent" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="pacer_lib.scraper.search_agent">
+<em class="property">class </em><tt class="descclassname">pacer_lib.scraper.</tt><tt class="descname">search_agent</tt><big>(</big><em>username</em>, <em>password</em>, <em>output_path='./results'</em>, <em>auto_login=True</em>, <em>wait_time=1</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a <tt class="docutils literal"><span class="pre">search_agent()</span></tt> object, that serves as an interface for 
+the PACER case locator. It will query and download both dockets 
+and documents. It is a modified requests.sessions object.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">username</span></tt>: a valid PACER username</li>
+<li><tt class="docutils literal"><span class="pre">password</span></tt>: a valid PACER password that goes with <tt class="docutils literal"><span class="pre">username</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">output_path</span></tt>: allows you to specify the relative path where you would
+like to save your downloads. The actual docket sheets will be saved to a
+subfolder within output_path, &#8216;/local_docket_archive/&#8217;. If the folders do
+not exist, they will be created.</li>
+<li><tt class="docutils literal"><span class="pre">auto_login</span></tt>: specify if you would like to login when the object is
+instantiated (you may want to use <tt class="docutils literal"><span class="pre">search_agent()</span></tt> to create PACER query
+strings).</li>
+<li><tt class="docutils literal"><span class="pre">wait_time</span></tt>: how long to wait between requests to the PACER website.</li>
+</ul>
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.download_case_docket">
+<tt class="descname">download_case_docket</tt><big>(</big><em>case_no</em>, <em>court_id</em>, <em>other_options={'default_form': 'b'</em>, <em>'court_type': 'all'}</em>, <em>overwrite=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.download_case_docket"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.download_case_docket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list that indicates the case_no, court_id and any error.
+<tt class="docutils literal"><span class="pre">download_case_docket</span></tt> also writes the .html docket sheet to
+<em>self.output_path</em> (in a subfolder &#8216;/local_docket_archive/&#8217;. If you set 
+<em>overwrite*=True, it will overwrite previous dockets. Otherwise, 
+``download_case_docket`` will check to see if the docket has already 
+been downloaded **before*</em> incurring any additional search or download 
+charges.</p>
+<p>You can also pass additional POST requests through <em>other_options</em>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.download_document">
+<tt class="descname">download_document</tt><big>(</big><em>case_filename</em>, <em>doc_no</em>, <em>doc_link</em>, <em>overwrite=False</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.download_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.download_document" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list that indicates the case_name, doc_no and any error.
+<tt class="docutils literal"><span class="pre">download_case_document</span></tt> also writes the .pdf document to
+<em>self.output_path</em> (to the sub-folder &#8216;/local_document_archive/&#8217;. 
+If you set <em>overwrite*=True, it will overwrite previously downloaded
+documents. Otherwise, ``download_case_document`` will check to see
+if the docket has already been downloaded **before*</em> incurring any 
+additional search or downlaod charges.</p>
+<p>You can also pass additional POST requests through <em>other_options</em>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.query_case_locator">
+<tt class="descname">query_case_locator</tt><big>(</big><em>payload</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.query_case_locator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.query_case_locator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a string literal of the HTML of the search results page. This 
+function passes queries to the PACER Case Locator 
+(<a class="reference external" href="https://pcl.uscourts.gov/dquery">https://pcl.uscourts.gov/dquery</a>) and this is the simplest interface
+(you can send any key:value pairs as a POST request).</p>
+<p>We do not recommend using this unless you want more advanced
+functionality.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">payload</span></tt>: key-value pairs that will be converted into a POST 
+request.</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.refresh_login">
+<tt class="descname">refresh_login</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.refresh_login"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.refresh_login" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs in to the PACER system using the login and password provided at
+the initialization of <tt class="docutils literal"><span class="pre">search_agent()</span></tt>. This will create a Requests
+session that will allow you to query the PACER system. If 
+<em>auto_login</em> =False, <tt class="docutils literal"><span class="pre">refresh_login()</span></tt> must be called before you can
+query the case_locator. This function will raise an error if you 
+supply an invalid login or password.</p>
+<p>Returns nothing.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.request_docket_sheet">
+<tt class="descname">request_docket_sheet</tt><big>(</big><em>docket_link</em>, <em>other_options={}</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.request_docket_sheet"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.request_docket_sheet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the HTML of the docket sheet specified by <em>docket_link</em>.</p>
+<p>You can also pass additional POST requests through <em>other_options</em>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.request_document">
+<tt class="descname">request_document</tt><big>(</big><em>case_filename</em>, <em>document_link</em>, <em>other_options={}</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.request_document"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.request_document" title="Permalink to this definition">¶</a></dt>
+<dd><p>Using a case_filename and a link to the document, this function
+constructs the necesssary POST data and finds the correct document URL
+to download the specified PDF document.</p>
+<p>Returns binary data.</p>
+<p>You can also pass additional POST requests through <em>other_options</em>.</p>
+<p>(For version 2.1) Currently only implemented for district courts, but
+should eventually be implemented for bankruptcy and appellate courts.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pacer_lib.scraper.search_agent.search_case_locator">
+<tt class="descname">search_case_locator</tt><big>(</big><em>case_no</em>, <em>other_options={'default_form': 'b'</em>, <em>'court_type': 'all'}</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#search_agent.search_case_locator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.search_agent.search_case_locator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Passes a query to the PACER Case Locator and returns a list of search 
+results (as well as error message, if applicable). Returns two objects, 
+a list (<em>results</em>) and a string that indicates if there was an error.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">case_no</span></tt>: a string that represents a PACER query.</li>
+<li><tt class="docutils literal"><span class="pre">other_options</span></tt>: allows you to determine the payload sent to 
+<tt class="docutils literal"><span class="pre">query_case_locator()</span></tt>. This is validated in <tt class="docutils literal"><span class="pre">search_case_locator()</span></tt>
+so that you only pass known valid POST requests. The default options
+are those known to be necessary to get search results.</li>
+</ul>
+<p><strong>Output Documentation</strong>
+Each search result is a dictionary with these keys:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">searched_case_no</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">result_no</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">case_name</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">listed_case_no</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">court_id</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">nos</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">date_filed</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">date_closed</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">query_link</span></tt></li>
+</ul>
+<p>The second object returned is a string that verbosely indicates errors
+that occured. If the search result was found, the string is empty.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="other-functions">
+<h2>Other Functions<a class="headerlink" href="#other-functions" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="pacer_lib.scraper.disaggregate_docket_number">
+<tt class="descclassname">pacer_lib.scraper.</tt><tt class="descname">disaggregate_docket_number</tt><big>(</big><em>combined_docket_number</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#disaggregate_docket_number"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.disaggregate_docket_number" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a string that indicates the year of the case and the PACER-valid
+case_id.</p>
+<p>Disaggregates the year from the case number when we have combined docket numbers.
+Combined year and case numbers are often stored as integers, but this
+leads to the truncation of leading zeroes. We restore these leading
+zeroes and then return the two-digit year of the case and the case_id.
+The minimum number of digits for this function is five (which assumes
+that the case was from 2000). If there are further truncations (e.g.,
+&#8216;00-00084&#8217; stored as &#8216;0000084&#8217; and truncated to &#8216;84&#8217;), pre-process your
+case-numbers.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="pacer_lib.scraper.gen_case_query">
+<tt class="descclassname">pacer_lib.scraper.</tt><tt class="descname">gen_case_query</tt><big>(</big><em>district</em>, <em>office</em>, <em>year</em>, <em>docket_number</em>, <em>type_code</em>, <em>district_first=True</em><big>)</big><a class="reference internal" href="_modules/pacer_lib/scraper.html#gen_case_query"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pacer_lib.scraper.gen_case_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a PACER query from the district, office, year, case_id and case_type 
+and returns a tuple of (case_id, court_id, region).</p>
+<p>PACER case-numbers can be generated by consolidating the district,
+office, year, case id and case type information in a specific way.
+This function formats the district name and type_code correctly and then
+combines the case identifying information into a single PACER query.</p>
+<p>Many other data sources list the district of the court before the state,
+e.g., EDNY rather than NYED. If this is not the case, turn off the
+district_first option.</p>
+<p><strong>Keyword Arguments</strong></p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">year</span></tt> should be either 2 digits (e.g., 00) or 4 digits (e.g., 1978).</li>
+<li><tt class="docutils literal"><span class="pre">case_id</span></tt> should be exactly 5digits</li>
+<li><tt class="docutils literal"><span class="pre">type</span> <span class="pre">code</span></tt> must be one of the following: civil, civ, criminal, crim,
+bankruptcy, bank, cv, cr, bk</li>
+</ul>
+<p>Returns a tuple (case_number, court_id)</p>
+<p>(For Version 2.1)
+Note: Appellate Courts have not been implemented yet.</p>
+<p>Some of this functionality may not be necessary and should be revisited.</p>
+<p>Specifically, year can be 2 or 4 digits and case number does not have to
+be exactly 5 digits (up to 5 digits). Office must be exactly 1 digit.</p>
+<p>We could also consider including the specific sate in the output.
+We should also create a list of all valid courtids and check against it.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">pacer_lib.scraper</a><ul>
+<li><a class="reference internal" href="#search-agent">search_agent</a></li>
+<li><a class="reference internal" href="#other-functions">Other Functions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Tutorial.html"
+                        title="previous chapter">Tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="pacer_lib.reader.html"
+                        title="next chapter">pacer_lib.reader</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/pacer_lib.scraper.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="pacer_lib.reader.html" title="pacer_lib.reader"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Tutorial.html" title="Tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">pacer_lib 2.3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

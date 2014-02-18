@@ -1,0 +1,1033 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>pacer_lib.reader &mdash; pacer_lib 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="pacer_lib 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pacer_lib 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for pacer_lib.reader</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">codecs</span>
+<span class="kn">import</span> <span class="nn">cStringIO</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">bs4</span> <span class="kn">import</span> <span class="n">BeautifulSoup</span><span class="p">,</span> <span class="n">Comment</span>
+
+<span class="c">#Implement mySQL stuff</span>
+<span class="c"># Handle stuff</span>
+<span class="c">#ALlow for multiple docket_paths?</span>
+<span class="c">#Should also return meta-data from the download header</span>
+
+<div class="viewcode-block" id="docket_parser"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser">[docs]</a><span class="k">class</span> <span class="nc">docket_parser</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a docket_parser object that provides functions which allow you to</span>
+<span class="sd">    quickly load .html PACER docket sheets from the specified docket_path </span>
+<span class="sd">    parse metadata (about both the download of the docket as well as the </span>
+<span class="sd">    characteristics of the case), and convert into a machine-readable format</span>
+<span class="sd">    (CSV)</span>
+<span class="sd">    </span>
+<span class="sd">    This object is built on top of BeautifulSoup 4.</span>
+<span class="sd">    </span>
+<span class="sd">    **Keyword Arguments:**</span>
+
+<span class="sd">    * ``docket_path``: which specifies a relative path to the storage of dockets</span>
+<span class="sd">      (i.e., input data); dockets shoudl be in .html format</span>
+<span class="sd">    </span>
+<span class="sd">    * ``output_path``: which specifies a relative path to the folder where output</span>
+<span class="sd">      should be written. If this folder does not exist, it will be created. If the</span>
+<span class="sd">      two subfolders (``/case_meta/`` and ``/download_meta``) do not exist within</span>
+<span class="sd">      the output_path, then they will also be created.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docket_path</span><span class="o">=</span><span class="s">&#39;./results/local_docket_archive&#39;</span><span class="p">,</span>
+                 <span class="n">output_path</span><span class="o">=</span><span class="s">&#39;./results&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">docket_path</span> <span class="o">=</span> <span class="n">docket_path</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/processed_dockets/&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/processed_dockets_meta/&#39;</span><span class="p">)</span>
+
+        <span class="c">#Check that the output path exists and create it if it doesn&#39;t</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_path</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span> <span class="o">+</span> <span class="s">&#39;/case_meta/&#39;</span><span class="p">)</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span> <span class="o">+</span> <span class="s">&#39;/download_meta/&#39;</span><span class="p">)</span>
+                
+<div class="viewcode-block" id="docket_parser.parse_data"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.parse_data">[docs]</a>    <span class="k">def</span> <span class="nf">parse_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of all of the docket entries in ``data``, which should be</span>
+<span class="sd">        a string literal. BeautifulSoup is useed to parse a .html docket file </span>
+<span class="sd">        (pass as a string literal through ``data``) into a list</span>
+<span class="sd">        of docket entries. Each docket entry is also a list. </span>
+<span class="sd">        </span>
+<span class="sd">        **Keyword Arguments**</span>
+
+<span class="sd">        * ``data``: should be a string, read from a .html file.</span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+
+<span class="sd">        0. date_filed</span>
+<span class="sd">        1. document_number</span>
+<span class="sd">        2. docket_description</span>
+<span class="sd">        3. link_exist (this is a dummy to indicate the existence of a link)</span>
+<span class="sd">        4. document_link (docket_number does not uniquely identify the docket</span>
+<span class="sd">           entry so we also create a separate unique identifier)</span>
+<span class="sd">        5. unique_id (document_number is not a unique identifier so we create</span>
+<span class="sd">           one based on the placement in the .html docket sheet)</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>  
+        <span class="n">parsed_docket_table</span> <span class="o">=</span> <span class="p">[]</span>
+    
+        <span class="c"># Open the .html docket file and parse using BeautifulSoup </span>
+        <span class="c"># into a list of entries</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">source</span><span class="p">(</span><span class="s">&#39;script&#39;</span><span class="p">):</span> <span class="n">s</span><span class="o">.</span><span class="n">extract</span><span class="p">()</span>      <span class="c">#Remove Script Elements</span>
+        
+        <span class="n">docket_table</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;table&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;rules&#39;</span><span class="p">:</span><span class="s">&#39;all&#39;</span><span class="p">})</span>
+        <span class="n">docket_entries</span> <span class="o">=</span> <span class="n">docket_table</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;tr&#39;</span><span class="p">)</span>
+
+        <span class="c"># Parse each entry into a list of characteristics and append to the </span>
+        <span class="c"># parsed_docket_table</span>
+        <span class="n">skip_first_line</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">docket_entries</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">skip_first_line</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">skip_first_line</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="c"># Turn the docket entry into a list     </span>
+            <span class="n">row_cells</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">)</span>
+            <span class="n">row_contents</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">get_text</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">,</span> <span class="n">strip</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">row_cells</span><span class="p">]</span>
+            <span class="n">row_contents</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\r\n</span><span class="s">&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> 
+                            <span class="ow">in</span> <span class="n">row_contents</span><span class="p">]</span>
+
+            <span class="c"># Replace missing information</span>
+            <span class="k">if</span> <span class="n">row_contents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;&#39;</span><span class="p">:</span><span class="n">row_contents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">=</span><span class="s">&#39;NA&#39;</span>
+            <span class="k">if</span> <span class="n">row_contents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;&#39;</span><span class="p">:</span><span class="n">row_contents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="s">&#39;NA&#39;</span>
+            
+            <span class="c"># Search for the link to a document</span>
+            <span class="n">link</span> <span class="o">=</span> <span class="n">row_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">link</span><span class="p">:</span>
+                <span class="n">link_exist</span> <span class="o">=</span> <span class="s">&#39;1&#39;</span>
+                <span class="n">link</span> <span class="o">=</span> <span class="n">link</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;href&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">link_exist</span> <span class="o">=</span> <span class="s">&#39;0&#39;</span>
+                <span class="n">link</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+                
+            <span class="n">row_contents</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">link_exist</span><span class="p">,</span> <span class="n">link</span><span class="p">])</span>
+            <span class="n">parsed_docket_table</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row_contents</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parsed_docket_table</span><span class="p">):</span>
+            <span class="n">parsed_docket_table</span><span class="p">[</span><span class="n">number</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">number</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">parsed_docket_table</span>
+</div>
+<div class="viewcode-block" id="docket_parser.extract_download_meta"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.extract_download_meta">[docs]</a>    <span class="k">def</span> <span class="nf">extract_download_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a dictionary that contains all of the downloadmeta that was</span>
+<span class="sd">        stored by ``pacer_lib.scraper()`` at the time of download (i.e., the</span>
+<span class="sd">        *detailed_info* json object that is commented out at the top of new</span>
+<span class="sd">        downloads from PACER). This is meant to help improve reproducibility.</span>
+
+<span class="sd">        *detailed_info* is an add-on in later versions of pacer_lib that</span>
+<span class="sd">        records case-level data from the search screen (date_closed, link, </span>
+<span class="sd">        nature of suit, case-name, etc.) as well as the date and time of</span>
+<span class="sd">        download.</span>
+<span class="sd">        </span>
+<span class="sd">        In earlier versions of pacer_lib (i.e., released as </span>
+<span class="sd">        pacer_scraper_library), this was stored as a list and did not include</span>
+<span class="sd">        the date and time of download. ``extract_download_meta()`` can also</span>
+<span class="sd">        handle these *detailed_info* objects.</span>
+<span class="sd">        </span>
+<span class="sd">        If there is no *detailed_info*, the function returns a dictionary with</span>
+<span class="sd">        the key &#39;Error_download_meta&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">        **Keyword Arguments**</span>
+
+<span class="sd">        * ``data``: should be a string, read from a .html file.</span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        Unless otherwise noted, all of these are collected from the PACER</span>
+<span class="sd">        Case Locator results page. This is documented as </span>
+<span class="sd">        ``key``: description of value.        </span>
+<span class="sd">        </span>
+<span class="sd">        These terms are found in documents downloaded by any version of pacer_lib:</span>
+
+<span class="sd">        * ``searched_case_no``: the case number that was passed to pacer_lib.scraper(),</span>
+<span class="sd">          this is recorded to ensure reproducibility and comes from pacer_lib. </span>
+<span class="sd">          This is not found on the PACER Case Locator results page.</span>
+
+<span class="sd">        * ``court_id``: the abbreviation for the court the case was located in</span>
+<span class="sd">        * ``case_name``: the name of the case, as recorded by PACER</span>
+<span class="sd">        * ``nos``: a code for &quot;Nature of Suit&quot;</span>
+<span class="sd">        * ``date_filed``: the date the case was filed, as recorded by PACER</span>
+<span class="sd">        * ``date_closed``: the date the case was closed, as recorded by PACER</span>
+<span class="sd">        * ``link``: a link to the docket</span>
+<span class="sd">        </span>
+<span class="sd">        These are only in documents downloaded with newer versions of </span>
+<span class="sd">        pacer_lib:</span>
+
+<span class="sd">        * ``downloaded``: string that describes the time the docket was </span>
+<span class="sd">          downloaded by pacer_lib. This is not found on the PACER Case Locator </span>
+<span class="sd">          results page. (Format: yyyy-mm-dd,hh:mm:ss)</span>
+<span class="sd">        * ``listed_case_no``: string that describes the preferred PACER case no</span>
+<span class="sd">          for this case (as opposed to the query we submitted)</span>
+<span class="sd">        * ``result_no``: which result was the case on the PACER Case Locator</span>
+<span class="sd">          results page.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="k">lambda</span> <span class="n">text</span><span class="p">:</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">Comment</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">r</span><span class="p">:</span>
+            <span class="c"># New detailed_info</span>
+            <span class="k">if</span> <span class="s">&quot;detailed_info:&quot;</span> <span class="ow">in</span> <span class="n">r</span> <span class="ow">and</span> <span class="s">&#39;{&#39;</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;detailed_info:</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+                <span class="n">detailed_info</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+
+            <span class="c"># Legacy detailed_info</span>
+            <span class="k">elif</span> <span class="s">&quot;detailed_info:&quot;</span> <span class="ow">in</span> <span class="n">r</span> <span class="ow">and</span> <span class="s">&#39;(&#39;</span> <span class="ow">in</span> <span class="n">r</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;detailed_info:&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;(&#39;</span><span class="p">,</span><span class="s">&#39;[&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;)&#39;</span><span class="p">,</span><span class="s">&#39;]&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="n">temp</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+                <span class="n">detailed_info</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;searched_case_no&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                 <span class="s">&#39;court_id&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                 <span class="s">&#39;case_name&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                                 <span class="s">&#39;nos&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                                 <span class="s">&#39;date_filed&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+                                 <span class="s">&#39;date_closed&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+                                 <span class="s">&#39;link&#39;</span><span class="p">:</span><span class="n">temp</span><span class="p">[</span><span class="mi">6</span><span class="p">]}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s">&#39;Error_download_meta&#39;</span> <span class="p">:</span> <span class="s">&#39;</span><span class="se">\&#39;</span><span class="s">detailed_info:</span><span class="se">\&#39;</span><span class="s"> not found&#39;</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s">&#39;Error_download_meta&#39;</span> <span class="p">:</span> <span class="s">&#39;no comments in source code&#39;</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">detailed_info</span>
+</div>
+<div class="viewcode-block" id="docket_parser.extract_lawyer_meta"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.extract_lawyer_meta">[docs]</a>    <span class="k">def</span> <span class="nf">extract_lawyer_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a dictionary of information about the plaintiff, defendant and</span>
+<span class="sd">        their lawyers extracted from an .html docket (passed as a string literal</span>
+<span class="sd">        through ``data``).</span>
+<span class="sd">        </span>
+<span class="sd">        At the moment, ``extract_lawyer_meta()`` only handles the most common</span>
+<span class="sd">        listing (i.e., if there is one listing for plaintiff and one listing</span>
+<span class="sd">        for defendant). If there is more than one set of plaintiffs or</span>
+<span class="sd">        defendants (e.g., in a class action suit), the function will return a </span>
+<span class="sd">        dictionary with a single key *Error_lawyer_meta*. This function will not</span>
+<span class="sd">        handle movants and will probably not handle class-action cases. </span>
+<span class="sd">        </span>
+<span class="sd">        In dockets downloaded from older versions of pacer_lib </span>
+<span class="sd">        (e.g., pacer_scraper_library), lawyer information was not requested so</span>
+<span class="sd">        the dockets will not contain any lawyer_meta to be extracted.</span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        This is documented as ``key``: description of value.</span>
+<span class="sd">        </span>
+<span class="sd">        * ``plaintiffs``: list of the names of plaintiffs</span>
+<span class="sd">        * ``defendants``: list of the names of defendants</span>
+<span class="sd">        * ``plaintiffs_attorneys``: list of the name of attorneys representing</span>
+<span class="sd">          the plaintiffs</span>
+<span class="sd">        * ``defendants_attorneys``: list of the name of attorneys representing </span>
+<span class="sd">          the defendants</span>
+<span class="sd">        * ``plaintiffs_attorneys_details``: string that contains the cleaned</span>
+<span class="sd">          output of all plaintiff lawyer data (e.g., firm, address, email, etc.)</span>
+<span class="sd">          that can be further cleaned in the future.</span>
+<span class="sd">        * ``defendants_attorneys_details``: string that contains the cleaned</span>
+<span class="sd">          output of all defendant lawyer data (e.g., firm, address, email, etc.)</span>
+<span class="sd">          that can be further cleaned in the future.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">table_id</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;border&#39;</span><span class="p">:</span><span class="s">&#39;0&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;cellspacing&#39;</span><span class="p">:</span><span class="s">&#39;5&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;width&#39;</span><span class="p">:</span><span class="s">&#39;100%&#39;</span><span class="p">}</span>
+        <span class="n">tables</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;table&#39;</span><span class="p">,</span> <span class="n">table_id</span><span class="p">)</span>
+
+        <span class="n">lawyer_table</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="c"># Identify the base table that holds lawyer meta</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">tables</span><span class="p">:</span>
+            <span class="n">filter_text</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="c"># Skip the top meta info</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s">&quot;jury demand&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span>
+                <span class="ow">or</span> <span class="s">&quot;date filed&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span>
+                <span class="ow">or</span> <span class="s">&quot;docket text&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="s">&quot;plaintiff&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span> 
+                <span class="ow">and</span> <span class="s">&quot;defendant&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span>
+                <span class="ow">and</span> <span class="s">&quot;represented&quot;</span> <span class="ow">in</span> <span class="n">filter_text</span><span class="p">):</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">table</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">base</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s">&#39;Error_lawyer_meta&#39;</span> <span class="p">:</span> <span class="s">&#39;Could not identify table&#39;</span><span class="p">}</span>
+
+        <span class="n">rows</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;tr&#39;</span><span class="p">)</span>
+
+        <span class="c">#Keep track of the parsing</span>
+        <span class="n">plaintiff_row</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">defendant_row</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">parse_state</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="c"># Change the state as we pass different rows</span>
+            <span class="k">if</span> <span class="s">&quot;Plaintiff&quot;</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">get_text</span><span class="p">():</span>
+                <span class="n">parse_state</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="s">&quot;Defendant&quot;</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">get_text</span><span class="p">():</span>
+                <span class="n">parse_state</span> <span class="o">=</span> <span class="mi">2</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="s">&quot;Fictitious Defendant&quot;</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">get_text</span><span class="p">():</span>
+                <span class="n">parse_state</span> <span class="o">=</span> <span class="mi">3</span>
+
+            <span class="c"># Skip empty rows</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">row</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+                <span class="k">continue</span>
+
+            <span class="c"># Assign the next non-empty row to plaintiff and defendant</span>
+            <span class="c"># The order should not matter</span>
+            <span class="k">if</span> <span class="n">parse_state</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">plaintiff_row</span><span class="p">:</span>
+                <span class="n">plaintiff_row</span> <span class="o">=</span> <span class="n">row</span>
+
+            <span class="k">if</span> <span class="n">parse_state</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">defendant_row</span><span class="p">:</span>
+                <span class="n">defendant_row</span> <span class="o">=</span> <span class="n">row</span>
+
+        <span class="n">plaintiff_cells</span> <span class="o">=</span> <span class="n">plaintiff_row</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;width&#39;</span><span class="p">:</span><span class="s">&#39;40%&#39;</span><span class="p">})</span>
+        <span class="n">defendant_cells</span> <span class="o">=</span> <span class="n">defendant_row</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;width&#39;</span><span class="p">:</span><span class="s">&#39;40%&#39;</span><span class="p">})</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">defendant_cells</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">plaintiff_cells</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s">&#39;Error_lawyer_meta&#39;</span> <span class="p">:</span> <span class="s">&#39;Too many cells. Check source.&#39;</span><span class="p">}</span>
+
+        <span class="c"># Clean the plaintiffs names.</span>
+        <span class="n">plaintiffs</span> <span class="o">=</span> <span class="n">plaintiff_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plaintiffs</span><span class="p">):</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">new_name</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="n">plaintiffs</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+
+        <span class="n">plaintiffs_attorneys</span> <span class="o">=</span> <span class="n">plaintiff_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plaintiffs_attorneys</span><span class="p">):</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">new_name</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="n">plaintiffs_attorneys</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+
+        <span class="n">plaintiffs_attorneys_details</span> <span class="o">=</span> <span class="n">plaintiff_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">plaintiffs_attorneys_details</span> <span class="o">=</span> <span class="n">plaintiffs_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\r</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">plaintiffs_attorneys_details</span><span class="p">:</span>
+            <span class="n">plaintiffs_attorneys_details</span> <span class="o">=</span> <span class="n">plaintiffs_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span> <span class="ow">in</span> <span class="n">plaintiffs_attorneys_details</span><span class="p">:</span>
+            <span class="n">plaintiffs_attorneys_details</span> <span class="o">=</span>  <span class="n">plaintiffs_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">plaintiffs_attorneys_details</span><span class="p">:</span>
+            <span class="n">plaintiffs_attorneys_details</span> <span class="o">=</span> <span class="n">plaintiffs_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="c"># Clean the defendants names</span>
+        <span class="n">defendants</span> <span class="o">=</span> <span class="n">defendant_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">defendants</span><span class="p">):</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">new_name</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="n">defendants</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+
+        <span class="n">defendants_attorneys</span> <span class="o">=</span> <span class="n">defendant_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;b&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">defendants_attorneys</span><span class="p">):</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">new_name</span><span class="p">:</span>
+                <span class="n">new_name</span> <span class="o">=</span> <span class="n">new_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+            <span class="n">defendants_attorneys</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_name</span>
+
+        <span class="n">defendants_attorneys_details</span> <span class="o">=</span> <span class="n">defendant_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">defendants_attorneys_details</span> <span class="o">=</span> <span class="n">defendants_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\r</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">defendants_attorneys_details</span><span class="p">:</span>
+            <span class="n">defendants_attorneys_details</span> <span class="o">=</span> <span class="n">defendants_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span> <span class="ow">in</span> <span class="n">defendants_attorneys_details</span><span class="p">:</span>
+            <span class="n">defendants_attorneys_details</span> <span class="o">=</span>  <span class="n">defendants_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">defendants_attorneys_details</span><span class="p">:</span>
+            <span class="n">defendants_attorneys_details</span> <span class="o">=</span> <span class="n">defendants_attorneys_details</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        
+        <span class="n">lawyer_meta_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;plaintiffs&#39;</span><span class="p">:</span><span class="n">plaintiffs</span><span class="p">,</span>
+                            <span class="s">&#39;plaintiffs_attorneys&#39;</span><span class="p">:</span><span class="n">plaintiffs_attorneys</span><span class="p">,</span>
+                            <span class="s">&#39;plaintiffs_attorneys_details&#39;</span><span class="p">:</span><span class="n">plaintiffs_attorneys_details</span><span class="p">,</span>
+                            <span class="s">&#39;defendants&#39;</span><span class="p">:</span><span class="n">defendants</span><span class="p">,</span>
+                            <span class="s">&#39;defendants_attorneys&#39;</span><span class="p">:</span><span class="n">defendants_attorneys</span><span class="p">,</span>
+                            <span class="s">&#39;defendants_attorneys_details&#39;</span><span class="p">:</span><span class="n">defendants_attorneys_details</span><span class="p">}</span>
+
+        <span class="k">return</span> <span class="n">lawyer_meta_dict</span>
+</div>
+<div class="viewcode-block" id="docket_parser.extract_case_meta"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.extract_case_meta">[docs]</a>    <span class="k">def</span> <span class="nf">extract_case_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a dictionary of case information (e.g., case_name, demand,</span>
+<span class="sd">        nature of suit, jurisdiction, assigned judge, etc.) extracted from</span>
+<span class="sd">        an .html docket (passed as a string literal through ``data``). This</span>
+<span class="sd">        information should be available in all dockets downloaded from PACER.</span>
+
+<span class="sd">        This information may overlap with information from </span>
+<span class="sd">        ``extract_download_meta()``, but it is technically extracted from a </span>
+<span class="sd">        different source (the docket sheet, rather than the results page of the</span>
+<span class="sd">        PACER Case Locator).</span>
+<span class="sd">        </span>
+<span class="sd">        In consolidated cases, there is information about the</span>
+<span class="sd">        lead case, and a link. We extract any links in the case_meta section of</span>
+<span class="sd">        the document and store it in the dictionary with the key *meta_links*.</span>
+
+<span class="sd">        There are some encoding issues with characters such as \xc3 that we have</span>
+<span class="sd">        tried to address, but may need to be improved in the future.</span>
+<span class="sd">        </span>
+<span class="sd">        If ``extract_case_meta()`` cannot find the case_meta section of the</span>
+<span class="sd">        docket, it will return a dictionary with a single key, </span>
+<span class="sd">        *Error_case_meta*.</span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        Please note that ``extract_case_meta`` does common cleaning and then</span>
+<span class="sd">        treats each (text):(text) line as a key:value pair, so this </span>
+<span class="sd">        documentation only documents the most common keys that we have observed.</span>
+
+<span class="sd">        These keys are, generally, self-explanatory and are only listed for</span>
+<span class="sd">        convenience.</span>
+<span class="sd">        </span>
+<span class="sd">        * ``Case name``</span>
+<span class="sd">        * ``Assigned to``</span>
+<span class="sd">        * ``Referred to``</span>
+<span class="sd">        * ``Demand``</span>
+<span class="sd">        * ``Case in other court``</span>
+<span class="sd">        * ``Cause``</span>
+<span class="sd">        * ``Date Filed``</span>
+<span class="sd">        * ``Date Terminated``</span>
+<span class="sd">        * ``Jury Demand``</span>
+<span class="sd">        * ``Nature of Suit``</span>
+<span class="sd">        * ``Jurisdiction``</span>
+<span class="sd">        </span>
+<span class="sd">        Special keys:</span>
+
+<span class="sd">        * ``Member case``: the existence of this key indicates that this is </span>
+<span class="sd">          probably the lead case of a consolidated case.</span>
+<span class="sd">        * ``Lead case``: the existence of this key indicates that this is</span>
+<span class="sd">          probably a member case of a consolidated case.</span>
+<span class="sd">        * ``meta_links``: this will only exists if there are links in the</span>
+<span class="sd">          case_meta section of the PACER docket.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">source</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+        <span class="n">case_meta_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">meta_links</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c"># Find the correct cells (split into two columns)</span>
+        <span class="n">left_column</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;valign&#39;</span><span class="p">:</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;width&#39;</span><span class="p">:</span><span class="s">&#39;60%&#39;</span><span class="p">})</span>
+        <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">left_column</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&quot;Assigned to&quot;</span> <span class="ow">in</span> <span class="n">cell</span><span class="o">.</span><span class="n">prettify</span><span class="p">():</span>
+                <span class="n">case_meta</span> <span class="o">+=</span> <span class="n">cell</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="c">#Extract left column links</span>
+                <span class="n">links</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;a&#39;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">link</span> <span class="ow">in</span> <span class="n">links</span><span class="p">:</span>
+                    <span class="n">meta_links</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">link</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">link</span><span class="p">[</span><span class="s">&#39;href&#39;</span><span class="p">]))</span>
+                    
+        <span class="n">right_column</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s">&#39;td&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;valign&#39;</span><span class="p">:</span><span class="s">&#39;top&#39;</span><span class="p">,</span> <span class="s">&#39;width&#39;</span><span class="p">:</span><span class="s">&#39;40%&#39;</span><span class="p">})</span>
+        <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">right_column</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&quot;Date Filed:&quot;</span> <span class="ow">in</span> <span class="n">cell</span><span class="o">.</span><span class="n">prettify</span><span class="p">():</span>
+                <span class="n">case_meta</span> <span class="o">+=</span> <span class="n">cell</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">case_meta</span> <span class="o">==</span> <span class="s">&#39;&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s">&#39;Error_case_meta&#39;</span> <span class="p">:</span> <span class="s">&#39;case_meta string not found in columns&#39;</span><span class="p">}</span>
+
+        <span class="c">#1. CLEAN the case_meta string</span>
+        <span class="c">#strip leading whitespace</span>
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+        <span class="c">#remove carriage returns</span>
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\r</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="c">#remove double spaces</span>
+        <span class="k">while</span> <span class="s">&#39;  &#39;</span> <span class="ow">in</span> <span class="n">case_meta</span><span class="p">:</span>
+            <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;  &#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span>
+
+        <span class="c">#remove leading spaces</span>
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span> <span class="ow">in</span> <span class="n">case_meta</span><span class="p">:</span>
+            <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s"> &#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="c">#remove double line breaks</span>
+        <span class="k">while</span> <span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">case_meta</span><span class="p">:</span>
+            <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n\n</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+
+        <span class="c">#remove problem strings</span>
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;:</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39;: &#39;</span><span class="p">)</span>
+
+
+        <span class="c">#2. PARSE the case_meta string into a case_meta list</span>
+        <span class="c"># and finally into a case_meta dictionary</span>
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="n">case_meta</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">case_meta</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s">u&#39;</span><span class="se">\xa0</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">item</span><span class="p">:</span>
+                <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">u&#39;</span><span class="se">\xa0</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">u&#39; &#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s">u&#39;</span><span class="se">\xc3</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">item</span><span class="p">:</span>
+                <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">u&#39;\c3&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+
+            <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">n2</span><span class="p">,</span> <span class="n">subitem</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">]):</span>
+                <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">n2</span><span class="p">]</span> <span class="o">=</span> <span class="n">subitem</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">case_meta_dict</span><span class="p">[</span><span class="s">&#39;Case name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">case_meta_dict</span><span class="p">[</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="s">&#39;:&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">])])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">case_meta_dict</span><span class="p">[</span><span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">case_meta</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c">#3. Add all links in</span>
+        <span class="k">if</span> <span class="n">meta_links</span><span class="p">:</span>
+            <span class="n">case_meta_dict</span><span class="p">[</span><span class="s">&#39;meta_links&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">meta_links</span>
+        <span class="k">return</span> <span class="n">case_meta_dict</span>
+</div>
+<div class="viewcode-block" id="docket_parser.extract_all_meta"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.extract_all_meta">[docs]</a>    <span class="k">def</span> <span class="nf">extract_all_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns two dictionaries, one that has download_meta and one that </span>
+<span class="sd">        contains meta extracted from the docket. ``extract_all_meta()`` runs </span>
+<span class="sd">        ``extract_case_meta()``, ``extract_lawyer_meta()`` and </span>
+<span class="sd">        ``extract_download_meta()`` on ``data`` (a string literal of an .html</span>
+<span class="sd">        document). It returns two dictionaries (one containing download_meta</span>
+<span class="sd">        and one containing both case_meta and lawyer_meta) because download_meta</span>
+<span class="sd">        and case_meta have overlapping information. </span>
+<span class="sd">        </span>
+<span class="sd">        If debug is not turned on, extract_all_meta will ignore any</span>
+<span class="sd">        error output from the sub functions (e.g., if the functions cannot find</span>
+<span class="sd">        the relevant sections).</span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        See the output documentation of  ``extract_case_meta()``, </span>
+<span class="sd">        ``extract_lawyer_meta()`` and ``extract_download_meta()``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#Check for errors.</span>
+        <span class="n">download_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_download_meta</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&quot;Error_download_meta&quot;</span> <span class="ow">in</span> <span class="n">download_meta</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">download_meta</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">case_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_case_meta</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&quot;Error_case_meta&quot;</span> <span class="ow">in</span> <span class="n">case_meta</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">case_meta</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">lawyer_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_lawyer_meta</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&quot;Error_lawyer_meta&quot;</span> <span class="ow">in</span> <span class="n">lawyer_meta</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="n">lawyer_meta</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c"># Check for duplicate keys</span>
+        <span class="n">l_c_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">lawyer_meta</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">case_meta</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">l_c_keys</span><span class="p">:</span>
+           <span class="k">return</span> <span class="n">download_meta</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;Error&#39;</span><span class="p">:</span><span class="s">&#39;Key Conflicts&#39;</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">docket_meta</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">case_meta</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="o">+</span> <span class="n">lawyer_meta</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+
+        <span class="k">return</span>  <span class="n">download_meta</span><span class="p">,</span> <span class="n">docket_meta</span>
+</div>
+<div class="viewcode-block" id="docket_parser.parse_dir"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_parser.parse_dir">[docs]</a>    <span class="k">def</span> <span class="nf">parse_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run ``parse_data()`` and ``extract_all_meta()`` on each file in the </span>
+<span class="sd">        docket_path folder and writes the output to the output_path. </span>
+<span class="sd">        </span>
+<span class="sd">        **Output Documentation**</span>
+<span class="sd">        This function returns nothing.</span>
+<span class="sd">        </span>
+<span class="sd">        **File documentation**</span>
+<span class="sd">        The docket entries of each docket are stored as a .csv in a folder</span>
+<span class="sd">        &#39;processed_dockets&#39;. The filename of the csv indicates the source docket</span>
+<span class="sd">        and the columns represent (in order):</span>
+<span class="sd">        </span>
+<span class="sd">        0. date_filed</span>
+<span class="sd">        1. document_number</span>
+<span class="sd">        2. docket_description</span>
+<span class="sd">        3. link_exist (this is a dummy to indicate the existence of a link)</span>
+<span class="sd">        4. document_link (docket_number does not uniquely identify the docket</span>
+<span class="sd">           entry so we also create a separate unique identifier)</span>
+<span class="sd">        5. unique_id (document_number is not a unique identifier so we create</span>
+<span class="sd">           one based on the placement in the .html docket sheet)</span>
+<span class="sd">        </span>
+<span class="sd">        The download meta and case and lawyer meta information of each docket </span>
+<span class="sd">        is stored as a JSON-object in the sub-folders </span>
+<span class="sd">        &#39;processed_dockets_meta/download_meta/&#39; and</span>
+<span class="sd">        &#39;processed_dockets_meta/case_meta/&#39; within the output path. The files</span>
+<span class="sd">        indicate the source docket and are prefixed by **download_meta_** and</span>
+<span class="sd">        **case_meta_**, respectively.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># Check for all of the files that have been downloaded</span>
+        <span class="k">for</span> <span class="nb">dir</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">docket_path</span><span class="p">):</span>
+            <span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="n">output_filename</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  
+                                   <span class="nb">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;html&#39;</span><span class="p">,</span> <span class="s">&#39;csv&#39;</span><span class="p">))</span>
+                <span class="n">case_meta_filename</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span> <span class="o">+</span> <span class="s">&#39;/case_meta/case_meta_&#39;</span> <span class="o">+</span>
+                                      <span class="nb">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;html&#39;</span><span class="p">,</span> <span class="s">&#39;json&#39;</span><span class="p">))</span>
+                <span class="n">download_meta_filename</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_meta_path</span> <span class="o">+</span> 
+                                          <span class="s">&#39;/download_meta/download_meta_&#39;</span> <span class="o">+</span> 
+                                          <span class="nb">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;html&#39;</span><span class="p">,</span> <span class="s">&#39;json&#39;</span><span class="p">))</span>
+
+                <span class="c">#If the file exists and we have been told not to overwrite, skip.</span>
+                <span class="k">if</span> <span class="n">overwrite</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_filename</span><span class="p">):</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">docket_path</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="nb">file</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="nb">input</span><span class="p">:</span>
+                        <span class="n">source</span> <span class="o">=</span> <span class="nb">input</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+                        <span class="n">download_meta</span><span class="p">,</span> <span class="n">case_meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_all_meta</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+                        <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_data</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+
+                        <span class="c">#Add the number of download entries</span>
+                        <span class="n">case_meta</span><span class="p">[</span><span class="s">&#39;docket_entries&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+                        <span class="k">with</span> <span class="n">codecs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">output_filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span>
+                            <span class="n">writer</span> <span class="o">=</span> <span class="n">UnicodeWriter</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="s">&#39;excel&#39;</span><span class="p">)</span>
+                            <span class="n">writer</span><span class="o">.</span><span class="n">writerows</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+
+                        <span class="k">with</span> <span class="n">codecs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">download_meta_filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span>
+                            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">download_meta</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+                        <span class="k">with</span> <span class="n">codecs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">case_meta_filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">output</span><span class="p">:</span>
+                            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">case_meta</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>                                    
+</div></div>
+<div class="viewcode-block" id="docket_processor"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor">[docs]</a><span class="k">class</span> <span class="nc">docket_processor</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a ``docket_processor()`` object that allows for keyword and boolean</span>
+<span class="sd">    searching of docket entries from dockets specified in *processed_path*. </span>
+<span class="sd">    ``docket_processor`` relies on the use of `docket_parser`` to</span>
+<span class="sd">    parse .html PACER dockets into structured .csv, although it is theoretically</span>
+<span class="sd">    possible (but quite tedious) to independently bring dockets into compliance</span>
+<span class="sd">    for use with ``docket_processor``.</span>
+<span class="sd">    </span>
+<span class="sd">    This will give you a set of documents (and their associated links) for</span>
+<span class="sd">    download (and which can be passed to pacer_lib.scraper()).</span>
+<span class="sd">    </span>
+<span class="sd">    The object then outputs a docket-level or consolidated .csv that describes</span>
+<span class="sd">    all documents that meet the search criteria (stored in *hit_list*).</span>
+<span class="sd">    </span>
+<span class="sd">    **Keyword Arguments**</span>
+
+<span class="sd">    * ``processed_path`` points to the folder containing .csv docket files</span>
+<span class="sd">    * ``output_path`` points to the folder where you would like output to be</span>
+<span class="sd">      stored. Note that the output will actually be stored in a subfolder of the</span>
+<span class="sd">      *output_path* called */docket_hits/*. If the folders do not exist, they will</span>
+<span class="sd">      be created.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">processed_path</span><span class="o">=</span><span class="s">&#39;./results/processed_dockets&#39;</span><span class="p">,</span>
+                 <span class="n">output_path</span><span class="o">=</span><span class="s">&#39;./results/&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">processed_path</span> <span class="o">=</span> <span class="n">processed_path</span>
+        
+        <span class="c">#Check that the output path exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/docket_hits&#39;</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="o">+</span> <span class="s">&quot;/docket_hits&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/docket_hits&#39;</span><span class="p">)</span>
+
+        <span class="c">#Initialize dictionary of Docket:Match Listing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span> <span class="o">=</span> <span class="p">{}</span>
+    
+<div class="viewcode-block" id="docket_processor.search_text"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor.search_text">[docs]</a>    <span class="k">def</span> <span class="nf">search_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">require_term</span><span class="o">=</span><span class="p">[],</span> <span class="n">exclude_term</span><span class="o">=</span><span class="p">[],</span> 
+                    <span class="n">case_sensitive</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a boolean indicating if all criteria are satisified in</span>
+<span class="sd">        *text*. The criteria are determined in this way:</span>
+<span class="sd">        </span>
+<span class="sd">        * all strings in the list *require_term* are found in *text*</span>
+<span class="sd">        * and, no strings in the list *exclude_term* are found in </span>
+<span class="sd">          *text*</span>
+
+<span class="sd">        If you pass a string instead of a list to either *require_term* or </span>
+<span class="sd">        *exclude_term*, ``search_text()`` will convert it to a list.</span>
+
+<span class="sd">        This search is, by default case-insensitive, but you can turn on</span>
+<span class="sd">        case-sensitive search through *case_sensitive*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># If there are neither required terms or exluded terms, you have</span>
+        <span class="c"># used this function incorrectly. You suck. Raises an error.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">require_term</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">exclude_term</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;You must search for at least one required or&#39;</span> <span class="o">+</span>
+                             <span class="s">&#39;excluded term.&#39;</span><span class="p">)</span>
+
+        <span class="c"># If search terms are single strings, convert them to lists</span>
+        <span class="k">for</span> <span class="n">term_type</span> <span class="ow">in</span> <span class="n">require_term</span><span class="p">,</span> <span class="n">exclude_term</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">term_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="n">term_type</span> <span class="o">=</span> <span class="p">[</span><span class="n">term_type</span><span class="p">]</span>
+
+        <span class="c"># Convert to case-insensitive</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">case_sensitive</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">term</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">require_term</span><span class="p">):</span>
+                <span class="n">require_term</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">term</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exclude_term</span><span class="p">):</span>
+                <span class="n">exclude_term</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">term</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+        <span class="c">#SEARCH THE TEXT</span>
+        <span class="n">term_match</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c"># Check that all required terms are in the text</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">require_term</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">term</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+                <span class="n">term_match</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="c"># Check that no excluded terms are in the text</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">exclude_term</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+                <span class="n">term_match</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">return</span> <span class="n">term_match</span>
+</div>
+<div class="viewcode-block" id="docket_processor.search_docket"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor.search_docket">[docs]</a>    <span class="k">def</span> <span class="nf">search_docket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docket</span><span class="p">,</span> <span class="n">require_term</span><span class="o">=</span><span class="p">[],</span> <span class="n">exclude_term</span><span class="o">=</span><span class="p">[],</span> 
+                      <span class="n">case_sensitive</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">within</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a lists of docket entries that match the search criteria.</span>
+<span class="sd">        Docket entries are lists that should have the same structure as </span>
+<span class="sd">        described in docket_parser, i.e. in order:</span>
+
+<span class="sd">        0. date_filed</span>
+<span class="sd">        1. document_number</span>
+<span class="sd">        2. docket_description</span>
+<span class="sd">        3. link_exist (this is a dummy to indicate the existence of a link)</span>
+<span class="sd">        4. document_link (docket_number does not uniquely identify the docket</span>
+<span class="sd">           entry so we also create a separate unique identifier)</span>
+<span class="sd">        5. unique_id (document_number is not a unique identifier so we create</span>
+<span class="sd">           one based on the placement in the .html docket sheet)</span>
+
+<span class="sd">        The docket is specified by the argument *docket* and searched for </span>
+<span class="sd">        in the *self.processed_path* folder.</span>
+
+<span class="sd">        The search criteria is specified by *require_term*, *exclude_term*, </span>
+<span class="sd">        *case_sensitive* and *within*, such that:</span>
+
+<span class="sd">        * if *within* !=0, all searches are constrained to the first x</span>
+<span class="sd">          characters of the text, where x = *within*</span>
+<span class="sd">        * all strings in the list *require_term* are found in *text* </span>
+<span class="sd">          (or the first x charactersm, if *within* is used)</span>
+<span class="sd">        * and, no strings in the list *exclude_term* are found in </span>
+<span class="sd">          *text* (or the first x charactersm, if *within* is used)</span>
+<span class="sd">        * if *case_sensitive* =True, then the search is case sensitive</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c"># Returns a list of entries (list of lists) that matches the search_term</span>
+        <span class="n">matched_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">processed_path</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">docket</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">search_csv</span><span class="p">:</span>
+            <span class="n">docket_reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">search_csv</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="s">&#39;excel&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">num</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">docket_reader</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">within</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_text</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">require_term</span><span class="p">,</span> <span class="n">exclude_term</span><span class="p">,</span> 
+                                        <span class="n">case_sensitive</span><span class="p">):</span>
+                        <span class="n">matched_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">in_char</span> <span class="o">=</span> <span class="n">within</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_text</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">][:</span><span class="n">in_char</span><span class="p">],</span> <span class="n">require_term</span><span class="p">,</span> 
+                                        <span class="n">exclude_term</span><span class="p">,</span> <span class="n">case_sensitive</span><span class="p">):</span>
+                        <span class="n">matched_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">matched_list</span>
+                </div>
+<div class="viewcode-block" id="docket_processor.search_dir"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor.search_dir">[docs]</a>    <span class="k">def</span> <span class="nf">search_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">require_term</span><span class="o">=</span><span class="p">[],</span> <span class="n">exclude_term</span><span class="o">=</span><span class="p">[],</span> <span class="n">case_sensitive</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> 
+                   <span class="n">within</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Runs ``search_docket()`` on each docket in *self.processed_path* and</span>
+<span class="sd">        adds hits to *self.hit_list* as a key value pair </span>
+<span class="sd">        *case_number* : *[docket entries]*, where *case_number* is taken from the</span>
+<span class="sd">        filename and *[docket_entries]* is a list of docket entries (which are </span>
+<span class="sd">        also lists) that meet the search criteria.</span>
+
+<span class="sd">        The search criteria is specified by *require_term*, *exclude_term*, </span>
+<span class="sd">        *case_sensitive* and *within*, such that:</span>
+
+<span class="sd">        * if *within* !=0, all searches are constrained to the first x</span>
+<span class="sd">          characters of the text, where x = *within*</span>
+<span class="sd">        * all strings in the list *require_term* are found in *text* </span>
+<span class="sd">          (or the first x charactersm, if *within* is used)</span>
+<span class="sd">        * and, no strings in the list *exclude_term* are found in </span>
+<span class="sd">          *text* (or the first x charactersm, if *within* is used)</span>
+<span class="sd">        * if *case_sensitive* =True, then the search is case sensitive</span>
+
+<span class="sd">        Returns nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#Searches through the directory for all dockets with matching documents</span>
+        <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="nb">dir</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">processed_path</span><span class="p">):</span>
+            <span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span> 
+                <span class="n">filename</span> <span class="o">=</span> <span class="nb">file</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.csv&#39;</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+                <span class="c">#Adds docket with matches to hit_list dictionary</span>
+                <span class="k">if</span> <span class="n">filename</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">:</span>
+                    <span class="n">matched_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_docket</span><span class="p">(</span><span class="nb">file</span><span class="p">,</span> <span class="n">require_term</span><span class="p">,</span> 
+                        <span class="n">exclude_term</span><span class="p">,</span> <span class="n">case_sensitive</span><span class="p">,</span> <span class="n">within</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">matched_list</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">[</span><span class="n">filename</span><span class="p">]</span> <span class="o">=</span> <span class="n">matched_list</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_docket</span><span class="p">(</span><span class="nb">file</span><span class="p">,</span> <span class="n">require_term</span><span class="p">,</span> 
+                                                    <span class="n">exclude_term</span><span class="p">,</span> 
+                                                    <span class="n">case_sensitive</span><span class="p">,</span> <span class="n">within</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">match</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">[</span><span class="n">filename</span><span class="p">]:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">[</span><span class="n">filename</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">match</span><span class="p">)</span>
+        
+        </div>
+<div class="viewcode-block" id="docket_processor.write_all_matches"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor.write_all_matches">[docs]</a>    <span class="k">def</span> <span class="nf">write_all_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Writes all of the matches found in the *self.hit_list* dictionary to </span>
+<span class="sd">        a single .csv file (**all_match.csv**) in the *self.output_path*. </span>
+<span class="sd">        The columns of the .csv are (in order):</span>
+
+<span class="sd">        0. case_number (as defined by the source .csv)</span>
+<span class="sd">        1. date_filed</span>
+<span class="sd">        2. document_number</span>
+<span class="sd">        3. docket_description</span>
+<span class="sd">        4. link_exist (this is a dummy to indicate the existence of a link)</span>
+<span class="sd">        5. document_link (docket_number does not uniquely identify the docket</span>
+<span class="sd">           entry so we also create a separate unique identifier)</span>
+<span class="sd">        6. unique_id (document_number is not a unique identifier so we create</span>
+<span class="sd">           one based on the placement in the .html docket sheet)</span>
+
+<span class="sd">        (For version 2.1) We should allow for suffixing and also have an</span>
+<span class="sd">        overwrite option that defaults to False to prevent accidental overwrites.</span>
+
+<span class="sd">        Returns nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/all_match.csv&#39;</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span> <span class="s">&#39;excel&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+                    <span class="n">temp</span> <span class="o">=</span> <span class="n">row</span>
+                    <span class="n">temp</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+                    <span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">temp</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="docket_processor.write_individual_matches"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.docket_processor.write_individual_matches">[docs]</a>    <span class="k">def</span> <span class="nf">write_individual_matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">suffix</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Writes all of the matches in the *self.hit_list* dictionary to one .csv</span>
+<span class="sd">        file per docket sheet (determined by the source .csv). To distinguish</span>
+<span class="sd">        from the source .csv, they are prefixed by a ^. They are also suffixed </span>
+<span class="sd">        to allow for multiple searches of the same source .csv. </span>
+
+<span class="sd">        Suffix is required and if the same suffix is specified, it will </span>
+<span class="sd">        overwrite previous searches. </span>
+
+<span class="sd">        (For version 2.1) We should have an overwrite option that defaults to </span>
+<span class="sd">        False to prevent accidental overwrites. If someones wants to overwrite</span>
+<span class="sd">        a search, we also want to delete all files with that suffix.</span>
+
+<span class="sd">        Returns nothing.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c">#Writes matches a new .csv file for each document within the search directory</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_path</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="s">&#39;^&#39;</span> <span class="o">+</span> <span class="n">key</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="n">suffix</span> <span class="o">+</span><span class="s">&#39;.csv&#39;</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                 <span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="s">&#39;excel&#39;</span><span class="p">)</span>
+                 <span class="n">writer</span><span class="o">.</span><span class="n">writerows</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hit_list</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>         
+        
+    </div></div>
+<div class="viewcode-block" id="document_sorter"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter">[docs]</a><span class="k">class</span> <span class="nc">document_sorter</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Not implemented yet. Sorry.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docket_path</span><span class="o">=</span><span class="s">&#39;./results/local_docket_archive&#39;</span><span class="p">,</span>
+                 <span class="n">document_path</span><span class="o">=</span><span class="s">&#39;./results/local_document_archive&#39;</span><span class="p">,</span>
+                 <span class="n">output_path</span><span class="o">=</span><span class="s">&#39;./results&#39;</span><span class="p">,</span>
+                 <span class="n">searchable_criteria</span> <span class="o">=</span> <span class="s">&#39;court&#39;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">docket_path</span> <span class="o">=</span> <span class="n">docket_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">document_path</span> <span class="o">=</span> <span class="n">document_path</span>    
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">searchable_criteria</span> <span class="o">=</span> <span class="n">searchable_criteria</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">file_index</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c">#Set the output folder for the text conversions        </span>
+        <span class="n">x</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;self.output_path = (os.path.abspath(output_path) +&#39;/text_document_archive/&#39;)</span>
+<span class="s">        if not os.path.exists(output_path):</span>
+<span class="s">            os.makedirs(os.path.abspath(output_path) + &quot;/local_docket_archive&quot;)</span>
+<span class="s">            os.makedirs(os.path.abspath(output_path) + &quot;/local_document_archive&quot;)</span>
+<span class="s">        elif not os.path.exists(output_path+&quot;/local_docket_archive/&quot;):</span>
+<span class="s">            os.makedirs(os.path.abspath(output_path) + &quot;/local_docket_archive/&quot;)</span>
+<span class="s">            if not os.path.exists(output_path+&quot;/local_document_archive/&quot;):</span>
+<span class="s">                os.makedirs(os.path.abspath(output_path) + &quot;/local_document_archive/&quot;)</span>
+<span class="s">        &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="document_sorter.convert_PDF_to_text"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.convert_PDF_to_text">[docs]</a>    <span class="k">def</span> <span class="nf">convert_PDF_to_text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert a file to text and save it in the text_output_path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="document_sorter.convert_all"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.convert_all">[docs]</a>    <span class="k">def</span> <span class="nf">convert_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        For files in the document path, use convert_PDF_to_text if it</span>
+<span class="sd">        has not been converted before. Determine if a file is searchable</span>
+<span class="sd">        or not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+</div>
+<div class="viewcode-block" id="document_sorter.set_flag"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.set_flag">[docs]</a>    <span class="k">def</span> <span class="nf">set_flag</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a criteria to the flagging process.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="document_sorter.flag_searchable"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.flag_searchable">[docs]</a>    <span class="k">def</span> <span class="nf">flag_searchable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flag according to self.flags()</span>
+<span class="sd">        Move files to a folder (make this an option)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="document_sorter.count"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.count">[docs]</a>    <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Count the file_index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="document_sorter.export_file_index"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.document_sorter.export_file_index">[docs]</a>    <span class="k">def</span> <span class="nf">export_file_index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save the file_index to a file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+</div></div>
+<div class="viewcode-block" id="UTF8Recoder"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.UTF8Recoder">[docs]</a><span class="k">class</span> <span class="nc">UTF8Recoder</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Iterator that reads an encoded stream and reencodes the input to UTF-8</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">encoding</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reader</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">getreader</span><span class="p">(</span><span class="n">encoding</span><span class="p">)(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">next</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">next</span><span class="p">()</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="UnicodeReader"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.UnicodeReader">[docs]</a><span class="k">class</span> <span class="nc">UnicodeReader</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A CSV reader which will iterate over lines in the CSV file &quot;f&quot;,</span>
+<span class="sd">    which is encoded in the given encoding.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">csv</span><span class="o">.</span><span class="n">excel</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">&quot;utf-8&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">UTF8Recoder</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">encoding</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">dialect</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">next</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">next</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">unicode</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+</div>
+<div class="viewcode-block" id="UnicodeWriter"><a class="viewcode-back" href="../../pacer_lib.reader.html#pacer_lib.reader.UnicodeWriter">[docs]</a><span class="k">class</span> <span class="nc">UnicodeWriter</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A CSV writer which will write rows to CSV file &quot;f&quot;,</span>
+<span class="sd">    which is encoded in the given encoding.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">csv</span><span class="o">.</span><span class="n">excel</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s">&quot;utf-8&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">):</span>
+        <span class="c"># Redirect output to a queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span> <span class="o">=</span> <span class="n">cStringIO</span><span class="o">.</span><span class="n">StringIO</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">writer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="p">,</span> <span class="n">dialect</span><span class="o">=</span><span class="n">dialect</span><span class="p">,</span> <span class="o">**</span><span class="n">kwds</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">f</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span> <span class="o">=</span> <span class="n">codecs</span><span class="o">.</span><span class="n">getincrementalencoder</span><span class="p">(</span><span class="n">encoding</span><span class="p">)()</span>
+
+    <span class="k">def</span> <span class="nf">writerow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">row</span><span class="p">])</span>
+        <span class="c"># Fetch UTF-8 output from the queue ...</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">getvalue</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="c"># ... and reencode it into the target encoding</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoder</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c"># write to the target stream</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="c"># empty queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">truncate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">writerows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rows</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+<span class="c"># class postprocessor():</span>
+<span class="c">#    print datetime.datetime.now().strftime(%Y-%m-%d-%H-%M-%S)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">pacer_lib 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Charles Zhang and Kevin Jiang.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>
