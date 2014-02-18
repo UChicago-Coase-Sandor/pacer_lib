@@ -45,7 +45,7 @@ during the course of our research and our goal is to make it easy to:
 Table of Contents
 =================
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    Foreword
    Installation
