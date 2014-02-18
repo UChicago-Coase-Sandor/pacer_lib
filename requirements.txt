@@ -1,4 +1,5 @@
-BeautifulSoup==4.3.2
-Requests==2.2.1
-lxml==2.3
-datetime==4.0.1
+pacer_lib>=2.3
+BeautifulSoup>=4
+Requests>=2
+lxml>=2.3
+datetime>=4.0
