@@ -1,9 +1,7 @@
-********
-Foreword
-********
-===========
-Other Notes
-===========
+*******************
+...Before You Begin
+*******************
+
 #. Please note that you will have to `register for your own PACER account 
    <http://www.pacer.gov/register.html>`_ before you can download any documents
    from PACER (case-search only account is sufficient). The creators and 
