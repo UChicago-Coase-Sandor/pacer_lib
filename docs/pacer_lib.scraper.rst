@@ -13,6 +13,6 @@ search_agent
 ---------------
 Other Functions
 ---------------
-.. autofunction:: disaggregate_docket_number
+.. autofunction:: pacer_lib.scraper.disaggregate_docket_number
     
-.. autofunction:: gen_case_query
+.. autofunction:: pacer_lib.scraper.gen_case_query
