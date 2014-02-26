@@ -1,13 +1,18 @@
 *********
 Changelog
 *********
-Version 2.31 (2014-02-26)
+Version 2.32, 2.31 (2014-02-26)
 
-    Fixed three bugs in ``reader.docket_processor().parse_data()``,
-    ``reader.docket_processor().extract_download_meta()`` and 
-    ``reader.docket_processor().extract_case_meta()``
+    Fixed three bugs in ``reader.docket_parser().parse_data``,
+    ``reader.docket_parser.extract_download_meta()`` and 
+    ``reader.docket_parser.extract_case_meta()`` by implementing
+    html5lib as an alternative processor and adding some string handling for
+    quotation marks.
 
-Version 2.3 (2014-02-18)
+    Fixed bug in ``reader.docket_processor.search_text()`` that would convert
+    strings into single-item lists.
+    
+Version 2.3, 2.2, 2.1 (2014-02-18)
 
     Made a bunch of mistakes, fixed them (mostly of the packaging variety) but
     burned through Versions 2.1 and 2.2.

@@ -694,11 +694,11 @@ class docket_processor():
             raise ValueError('You must search for at least one required or' +
                              'excluded term.')
 
-        # If search terms are single strings, convert them to lists
-        for term_type in require_term, exclude_term:
-            if isinstance(term_type, str):
-                term_type = [term_type]
-                print require_term
+        # If search terms are single strings, convert them to lists. 
+        if isinstance(require_term, str):
+            require_term = [require_term]
+        if isinstance(exclude_term, str):
+            exclude_term = [exclude_term]
 
         # Convert to case-insensitive
         if not case_sensitive:

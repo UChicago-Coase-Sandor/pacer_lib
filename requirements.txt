@@ -1,4 +1,4 @@
-pacer_lib>=2.31
+pacer_lib>=2.32
 beautifulsoup4 >=4
 requests>=2
 html5lib>=0.98

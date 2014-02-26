@@ -1,6 +1,6 @@
 from distutils.core import setup
 setup(name='pacer_lib',
-	  version='2.31',
+	  version='2.32',
 	  author='C Zhang, K Jiang',
 	  author_email='admin@uchicagolawandecon.org',
 	  maintainer='Coase-Sandor Institute for Law and Economics, C Zhang, K Jiang',
