@@ -7,6 +7,7 @@ import os
 import requests
 import re
 import time
+import html5lib
 from bs4 import BeautifulSoup, Comment
 
 #Implement mySQL stuff
@@ -39,6 +40,7 @@ class docket_parser():
                  output_path='./results'):
         self.docket_path = docket_path
 
+        self.bugged_path = os.path.abspath(output_path + '/bugged_dockets/') 
         self.output_path = os.path.abspath(output_path + '/processed_dockets/')
         self.output_meta_path = os.path.abspath(output_path + '/processed_dockets_meta/')
 
@@ -46,21 +48,31 @@ class docket_parser():
         if not os.path.exists(output_path):
             os.makedirs(self.output_path)
             os.makedirs(self.output_meta_path)
-        elif not os.path.exists(self.output_path) or not os.path.exists(self.output_meta_path):
+            os.makedirs(self.bugged_path)
+        elif (not os.path.exists(self.output_path) or 
+              not os.path.exists(self.output_meta_path) or
+              not os.path.exists(self.bugged_path)):
             if not os.path.exists(self.output_path):
                 os.makedirs(self.output_path)
             if not os.path.exists(self.output_meta_path):
                 os.makedirs(self.output_meta_path)
                 os.makedirs(self.output_meta_path + '/case_meta/')
                 os.makedirs(self.output_meta_path + '/download_meta/')
+            if not os.path.exists(self.bugged_path):
+                os.makedirs(self.bugged_path)
                 
     def parse_data(self, data):
         """
         Returns a list of all of the docket entries in ``data``, which should be
         a string literal. BeautifulSoup is useed to parse a .html docket file 
         (pass as a string literal through ``data``) into a list
-        of docket entries. Each docket entry is also a list. 
+        of docket entries. Each docket entry is also a list.
+
+        This uses html.parser and, in the case of failure, switches to html5lib. 
         
+        If it cannot find the table or entries, it will return a string as an
+        error message.
+
         **Keyword Arguments**
 
         * ``data``: should be a string, read from a .html file.
@@ -81,14 +93,34 @@ class docket_parser():
     
         # Open the .html docket file and parse using BeautifulSoup 
         # into a list of entries
+
+        # While most files can be processed with html.parser, some files
+        # cannot. In those cases, we switch to the more lenient html5lib.
+
+        # A. Make Soup.
         source = BeautifulSoup(data)
-        
         for s in source('script'): s.extract()      #Remove Script Elements
         
+        # B. Identify the table.
         docket_table = source.find('table', {'rules':'all'})
-        docket_entries = docket_table.find_all('tr')
+        if not docket_table: # Rerun in case we can't find the table
+            source = BeautifulSoup(data, "html5lib")
+            for s in source('script'): s.extract()
+            docket_table = source.find('table', {'rules':'all'})
+            if not docket_table: # If still can't find the table, return error.
+                return "Error, could not find docket_table."
 
-        # Parse each entry into a list of characteristics and append to the 
+        # C. Find the entries.
+        docket_entries = docket_table.find_all('tr')
+        if not docket_entries: #Rerun in case we found the table, but no rows
+            source = BeautifulSoup(data, "html5lib")
+            for s in source('script'): s.extract()
+            docket_table = source.find('table', {'rules':'all'})
+            docket_entries = docket_table.find_all('tr')
+            if not docket_entries: # If still can't find entries, return error.
+                return "Error, could not find docket_entries."
+
+        # D. Parse each entry into a list of characteristics and append to the 
         # parsed_docket_table
         skip_first_line = 0
         for entry in docket_entries:
@@ -182,13 +214,15 @@ class docket_parser():
         if r:
             # New detailed_info
             if "detailed_info:" in r and '{' in r:
-                r = r.replace('detailed_info:\n','')
+                r = r.replace('detailed_info:\n','').replace("\"\"", "\"")
+                r = r.replace(" \"", " \\\"").replace("\" ","\\\" ") # fix internal quotation marks
                 detailed_info = eval(r)
 
             # Legacy detailed_info
             elif "detailed_info:" in r and '(' in r:
                 r = r.replace('detailed_info:', '')
-                r = r.replace('(','[').replace(')',']').strip()
+                r = r.replace('(','[').replace(')',']').replace("\"\"", "\"").strip()
+                r = r.replace(" \"", " \\\"").replace("\" ","\\\" ") # fix internal quotation marks
                 temp = eval(r)
                 detailed_info = {'searched_case_no':temp[0],
                                  'court_id':temp[1],
@@ -293,11 +327,15 @@ class docket_parser():
             if parse_state == 2 and not defendant_row:
                 defendant_row = row
 
+        # Return an error if we don't find any applicable rows.
+        if parse_state == 0:
+            return {'Error_lawyer_meta' : 'Could not identify any rows.'}
+
         plaintiff_cells = plaintiff_row.find_all('td', {'width':'40%'})
         defendant_cells = defendant_row.find_all('td', {'width':'40%'})
         
         if len(defendant_cells) != 2 or len(plaintiff_cells) != 2:
-            return {'Error_lawyer_meta' : 'Too many cells. Check source.'}
+            return {'Error_lawyer_meta' : 'Too many cells or not enough cells. Check source.'}
 
         # Clean the plaintiffs names.
         plaintiffs = plaintiff_cells[0].find_all('b')
@@ -575,6 +613,14 @@ class docket_parser():
                         source = input.read()
                         download_meta, case_meta = self.extract_all_meta(source)
                         content = self.parse_data(source)
+
+                        # Error handling; copy the docket out and continue.
+                        if (content == "Error, could not find docket_table." or
+                            content == "Error, could not find docket_entries."):
+                            print file, content
+                            with open(self.bugged_path + '/' + file, 'w') as bugged:
+                                bugged.write(source)
+                            continue
 
                         #Add the number of download entries
                         case_meta['docket_entries'] = len(content)

@@ -1,7 +1,14 @@
 *********
 Changelog
 *********
+Version 2.31 (2014-02-26)
+
+    Fixed three bugs in ``reader.docket_processor().parse_data()``,
+    ``reader.docket_processor().extract_download_meta()`` and 
+    ``reader.docket_processor().extract_case_meta()``
+
 Version 2.3 (2014-02-18)
+
     Made a bunch of mistakes, fixed them (mostly of the packaging variety) but
     burned through Versions 2.1 and 2.2.
     
