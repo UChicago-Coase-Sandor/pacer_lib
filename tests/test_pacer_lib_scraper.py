@@ -1,5 +1,8 @@
+import sys, os
+sys.path.insert(0, os.path.dirname("../pacer_lib"))
+
 import unittest
-from pacer_scraper_2_parser import docket_parser
+from reader import docket_parser
 
 class test_docket_parser(unittest.TestCase):
     def setUp(self):
