@@ -652,6 +652,7 @@ class docket_processor():
         for term_type in require_term, exclude_term:
             if isinstance(term_type, str):
                 term_type = [term_type]
+                print require_term
 
         # Convert to case-insensitive
         if not case_sensitive:
