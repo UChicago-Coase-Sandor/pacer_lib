@@ -1,5 +1,6 @@
-pacer_lib>=2.3
+pacer_lib>=2.31
 beautifulsoup4 >=4
 requests>=2
+html5lib>=0.98
 lxml>=2.3
 datetime>=4.0
