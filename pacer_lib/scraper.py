@@ -443,7 +443,7 @@ class search_agent():
                     "WARNING: Docket Downloaded, but manually double check downloaded docket"]
         return [case_no, court_id, "Docket Downloaded"]
 
-    def download_document(self, case_filename, doc_no, doc_link, overwrite=False):
+    def download_document(self, case_filename, doc_no, doc_link, no_type='U', overwrite=False):
         """
         Returns a list that indicates the case_name, doc_no and any error.
         ``download_case_document`` also writes the .pdf document to
@@ -451,11 +451,32 @@ class search_agent():
         If you set *overwrite*=True, it will overwrite previously downloaded
         documents. Otherwise, ``download_case_document`` will check to see
         if the docket has already been downloaded **before** incurring any 
-        additional search or downlaod charges.
+        additional search or download charges.
         
-        You can also pass additional POST requests through *other_options*.
+        (To be implemented) docket_parser() assigns two types of numbers:
+        the listed docket number (i.e., the number listed on the page) and
+        the unique identifier (i.e., the position of the docket entry on 
+        the page). We should default to using the unique identifier, but
+        all of the legacy files will be using the listed identifier and we
+        will need to reassociate / convert those documents to their unique
+        identifier.
+
+        no_type = 'U' --> unique identifier
+        no_type = 'L' --> listed identifier
+
+        We have begun implementing this, but this is not completely finished.
+
+        Using the listed identifier should be considered legacy and not advised.
+
+        This will be dangerous in terms of redundant download protection.
+
+        Document this properly once we finish.
+
+        (Not implemented) You can also pass additional POST requests through 
+        *other_options*.
         """
-        # 0. Check that the case_filenumber is in the correct format.
+        # 0. Check for valid inputs 
+        # Check that the case_filenumber is in the correct format.
         case_filename_search = re.search('([a-zA-Z]{5,6})_(\d)\+(\d\d)-'
                                          '([a-zA-Z]{2})-(\d{1,5})', 
                                          case_filename.lower())
@@ -465,10 +486,24 @@ class search_agent():
         else:
             raise ValueError('Bad case_filename')
 
+        # check that no_type is valid
+        if no_type.upper() != 'U' and no_type.upper() != 'L' :
+            raise ValueError('Bad no_type. Must be \'U\' or \'L\'')
+        else:
+            no_type = no_type.upper()
+
         # ':' is not an acceptable character for Windows filenames, so we 
         # replace it with '+'. In older versions, we replaced it with '_'.
-        doc_filepath = (self.output_path + "/local_document_archive/"+ 
-                        case_filename + "_document_" + str(doc_no) +'.pdf')
+        # We also prefix the document number with a 'U' if we are using 
+        # the unique identifier.
+        if no_type == 'L':
+            doc_filepath = (self.output_path + "/local_document_archive/"+ 
+                            case_filename + "_document_"  + str(doc_no) 
+                            +'.pdf')
+        elif no_type == 'U':
+            doc_filepath = (self.output_path + "/local_document_archive/"+ 
+                            case_filename + "_document_U" + str(doc_no) 
+                            +'.pdf')
 
         # 0. Check if this docket has already been downloaded
         if overwrite is False:
