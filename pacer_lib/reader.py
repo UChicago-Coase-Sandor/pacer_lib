@@ -134,6 +134,11 @@ class docket_parser():
             row_contents = [c.replace('\t','').replace('\r\n','') for c 
                             in row_contents]
 
+            # Truncate extremely long cells:
+            for n, content in enumerate(row_contents):
+                if len(content) > 20000:
+                    row_contents[n] = content[0:20001] + "(TRUNCATED)"
+
             # Replace missing information
             if row_contents[0] == '':row_contents[0]='NA'
             if row_contents[1] == '':row_contents[1]='NA'
