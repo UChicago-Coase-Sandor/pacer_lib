@@ -41,8 +41,8 @@ class docket_parser():
         self.docket_path = docket_path
 
         self.bugged_path = os.path.abspath(output_path + '/bugged_dockets/') 
-        self.output_path = os.path.abspath(output_path + '/processed_dockets/')
-        self.output_meta_path = os.path.abspath(output_path + '/processed_dockets_meta/')
+        self.output_path = os.path.abspath(output_path + '/parsed_dockets/')
+        self.output_meta_path = os.path.abspath(output_path + '/parsed_dockets_meta/')
 
         #Check that the output path exists and create it if it doesn't
         if not os.path.exists(output_path):
@@ -664,7 +664,7 @@ class docket_processor():
       be created.
 
     """
-    def __init__(self, processed_path='./results/processed_dockets',
+    def __init__(self, processed_path='./results/parsed_dockets',
                  output_path='./results/'):
         self.processed_path = processed_path
         
