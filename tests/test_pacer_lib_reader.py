@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.dirname("../pacer_lib/"))
 
 import unittest
 from reader import docket_parser, docket_processor
-'''
+
 class test_docket_parser(unittest.TestCase):
     def setUp(self):
         self.p = docket_parser()
@@ -73,7 +73,6 @@ class test_docket_parser(unittest.TestCase):
 
     def test_parse_dir(self):
         pass
-'''
 
 class test_docket_processor(unittest.TestCase):
     def setUp(self):
