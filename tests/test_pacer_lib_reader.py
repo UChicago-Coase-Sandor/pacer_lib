@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.dirname("../pacer_lib/"))
 
 import unittest
 from reader import docket_parser, docket_processor
-
+'''
 class test_docket_parser(unittest.TestCase):
     def setUp(self):
         self.p = docket_parser()
@@ -73,30 +73,71 @@ class test_docket_parser(unittest.TestCase):
 
     def test_parse_dir(self):
         pass
-
+'''
 
 class test_docket_processor(unittest.TestCase):
     def setUp(self):
         self.p = docket_processor()
+        self.path = './results/processed_dockets/'
 
     def test_search_text(self):
         pass
 
     def test_search_docket(self):
-        pass
+    #Test good case 
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["fenton"])
+        self.assertTrue(len(results) == 4)
+        for result in results:
+            self.assertTrue('Fenton' in result[2])
+
+        #Test bad case
+        with self.assertRaises(IndexError):
+            results = self.p.search_docket("~bad.csv", ["fenton"])
+            
+
+        #Test troubled case
+        with self.assertRaises(Error):
+            results = self.p.search_docket("nysdce_1+08-cv-05523.csv", ["fenton"])
+
+'''
+        #Test excluded 
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", [], ["fenton"])
+        self.assertTrue(len(results) == 27)
+        for result in results:
+            self.assertFalse('Fenton' in result[2])
+
+        #Test good case-sensitive
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["FAX"], [], True)
+        self.assertTrue(len(results) == 2)
+        for result in results:
+            self.assertTrue('FAX' in result[2])
+
+        #Test bad case-sensitive
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["faX"], [], True)
+        self.assertTrue(len(results) == 0)
+
+        #Test good within character 
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["fax"], [], False, 5)
+        self.assertTrue(len(results) == 2)
+        for result in results:
+            self.assertTrue('FAX' in result[2][:4])        
+
+        #Test bad within character
+        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["number"], [], False, 5)
+        self.assertTrue(len(results) == 0)
 
     def test_search_dir(self):
         pass
 
     def test_write_all_matches(self):
-        self.assertTrue(0==1)
+        #self.assertTrue(0==1)
         pass
 
     def test_write_individual_matchest(self):
         pass
 
 
-x="""
+
 #def parser
 def parse_all_tests():
     parser = docket_parser()
@@ -143,8 +184,8 @@ def test_parser_prep_for_sql():
 
 #def test_docket_read():
 #    
-"""    
 
+'''
 if __name__ == '__main__':
     unittest.main()
 
