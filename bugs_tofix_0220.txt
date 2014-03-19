@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "parse_docket_0220.py", line 6, in <module>
+    a.parse_dir()
+  File "/usr/lib/python2.7/site-packages/pacer_lib/reader.py", line 577, in parse_dir
+    content = self.parse_data(source)
+  File "/usr/lib/python2.7/site-packages/pacer_lib/reader.py", line 89, in parse_data
+    docket_entries = docket_table.find_all('tr')
+AttributeError: 'NoneType' object has no attribute 'find_all'

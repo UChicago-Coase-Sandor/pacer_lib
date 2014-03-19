@@ -765,13 +765,17 @@ class docket_processor():
 
         # Returns a list of entries (list of lists) that matches the search_term
         matched_list = []
+        header_passed = False
+
         with open(self.processed_path + '/' + docket, 'r') as search_csv:
             docket_reader = csv.reader(search_csv, dialect='excel')
             for num, row in enumerate(docket_reader):
                 # skip column headers
-                if row == ['date_filed', 'document_number', 'docket_description', 
-                           'link_exist', 'document_link', 'unique_id']:
-                    continue
+                if not header_passed: 
+                    if row == ['date_filed', 'document_number', 'docket_description', 
+                               'link_exist', 'document_link', 'unique_id']:
+                        header_passed = True
+                        continue
 
                 if within == 0:
                     if self.search_text(row[2], require_term, exclude_term, 

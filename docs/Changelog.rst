@@ -1,6 +1,18 @@
 *********
 Changelog
 *********
+Version 2.33 (2014-03-19)
+    
+    Added truncation so that overlong docket descriptions do not break 
+    ``docket_parser()``
+    
+    Changed the default folder for parsed docket sheets from 
+    ``\processed_dockets\`` to ``\parsed_dockets\`` to eliminate confusion
+
+    Added csv headers to output files.
+
+    Began address bug #7
+    
 Version 2.32, 2.31 (2014-02-26)
 
     Fixed three bugs in ``reader.docket_parser().parse_data``,
