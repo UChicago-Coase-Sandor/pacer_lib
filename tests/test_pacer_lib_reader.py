@@ -1,9 +1,9 @@
-import sys, os
+import sys, os, csv
 sys.path.insert(0, os.path.dirname("../pacer_lib/"))
 
 import unittest
 from reader import docket_parser, docket_processor
-
+'''
 class test_docket_parser(unittest.TestCase):
     def setUp(self):
         self.p = docket_parser()
@@ -73,18 +73,54 @@ class test_docket_parser(unittest.TestCase):
 
     def test_parse_dir(self):
         pass
-
+'''
 class test_docket_processor(unittest.TestCase):
     def setUp(self):
         self.p = docket_processor()
-        self.path = './results/processed_dockets/'
+        self.path = './results/parsed_dockets/'
 
     def test_search_text(self):
-        pass
+        with open(self.path + "text_tester.csv", 'r') as t:
+            test_reader = csv.reader(t, dialect='excel')
+        #Test string convert
+            test_1 = test_reader.next()
+            results = self.p.search_text(test_1[2], "testing")
+            self.assertTrue(results)
+
+        #Test good required
+            results = self.p.search_text(test_1[2], ["testing"])
+            self.assertTrue(results)
+        #Test bad required
+            results = self.p.search_text(test_1[2], ["nothing"])
+            self.assertFalse(results)
+
+        #Test good excluded
+            test_2 = test_reader.next()
+            results = self.p.search_text(test_2[2], [], ["testing"])
+            self.assertTrue(results)
+        #Test bad excluded
+            results = self.p.search_text(test_2[2], [], ["nothing"])
+            self.assertFalse(results)
+        
+        #Test good both
+            test_3 = test_reader.next()
+            results = self.p.search_text(test_3[2], ["testing"], ["nothing"])
+            self.assertTrue(results)
+        #Test bad both
+            results = self.p.search_text(test_3[2], ["nothing"], ["testing"])
+            self.assertFalse(results)
+
+        #Test good case-sensitive
+            test_4 = test_reader.next()
+            results = self.p.search_text(test_4[2], ["TesTinG"], [], True)
+            self.assertTrue(results)
+        #Test bad case-sensitive
+            results = self.p.search_text(test_4[2], ["testing"], [], True)
+            self.assertFalse(results)
 
     def test_search_docket(self):
-    #Test good case 
-        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["fenton"])
+        #Test good case 
+        results = self.p.search_docket("text_tester.csv", ["fenton"])
         self.assertTrue(len(results) == 4)
         for result in results:
             self.assertTrue('Fenton' in result[2])
@@ -92,28 +128,6 @@ class test_docket_processor(unittest.TestCase):
         #Test bad case
         with self.assertRaises(IndexError):
             results = self.p.search_docket("~bad.csv", ["fenton"])
-            
-
-        #Test troubled case
-        with self.assertRaises(Error):
-            results = self.p.search_docket("nysdce_1+08-cv-05523.csv", ["fenton"])
-
-'''
-        #Test excluded 
-        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", [], ["fenton"])
-        self.assertTrue(len(results) == 27)
-        for result in results:
-            self.assertFalse('Fenton' in result[2])
-
-        #Test good case-sensitive
-        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["FAX"], [], True)
-        self.assertTrue(len(results) == 2)
-        for result in results:
-            self.assertTrue('FAX' in result[2])
-
-        #Test bad case-sensitive
-        results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["faX"], [], True)
-        self.assertTrue(len(results) == 0)
 
         #Test good within character 
         results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["fax"], [], False, 5)
@@ -123,7 +137,9 @@ class test_docket_processor(unittest.TestCase):
 
         #Test bad within character
         results = self.p.search_docket("cacdce_2_07-cv-03950.csv", ["number"], [], False, 5)
-        self.assertTrue(len(results) == 0)
+        self.assertEqual(len(results), 0)
+
+
 
     def test_search_dir(self):
         pass
