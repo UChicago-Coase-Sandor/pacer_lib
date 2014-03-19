@@ -601,6 +601,9 @@ class docket_parser():
         indicate the source docket and are prefixed by **download_meta_** and
         **case_meta_**, respectively.
         """
+        csv_headers = ['date_filed', 'document_number', 'docket_description', 
+                       'link_exist', 'document_link', 'unique_id']
+
         # Check for all of the files that have been downloaded
         for dir, list, files in os.walk(self.docket_path):
             for file in files:
@@ -632,6 +635,7 @@ class docket_parser():
 
                         with codecs.open(output_filename, 'w') as output:
                             writer = UnicodeWriter(output, dialect='excel')
+                            writer.writerow(csv_headers)
                             writer.writerows(content)
 
                         with codecs.open(download_meta_filename, 'w') as output:
@@ -764,6 +768,11 @@ class docket_processor():
         with open(self.processed_path + '/' + docket, 'r') as search_csv:
             docket_reader = csv.reader(search_csv, dialect='excel')
             for num, row in enumerate(docket_reader):
+                # skip column headers
+                if row == ['date_filed', 'document_number', 'docket_description', 
+                           'link_exist', 'document_link', 'unique_id']:
+                    continue
+
                 if within == 0:
                     if self.search_text(row[2], require_term, exclude_term, 
                                         case_sensitive):
@@ -837,6 +846,8 @@ class docket_processor():
 
         Returns nothing.
         """
+        csv_headers = ['date_filed', 'document_number', 'docket_description', 
+                       'link_exist', 'document_link', 'unique_id']
 
         suffix = suffix.replace('_', '').replace('/','').replace('\\','')
         suffix = suffix.replace('?','').replace('?','').replace('%','')
@@ -854,6 +865,8 @@ class docket_processor():
 
         with open(self.output_path + '/all_match__' + suffix + '.csv', 'w') as f:
             writer = csv.writer(f, dialect= 'excel')
+            writer.writerow(csv_headers)
+
             for key in self.hit_list.keys():
                 for row in self.hit_list[key]:
                     temp = row
@@ -876,6 +889,11 @@ class docket_processor():
 
         Returns nothing.
         """
+
+        csv_headers = ['case_number', 'date_filed', 'document_number', 
+                       'docket_description', 'link_exist', 'document_link', 
+                       'unique_id']
+
         suffix = suffix.replace('_', '').replace('/','').replace('\\','')
         suffix = suffix.replace('?','').replace('?','').replace('%','')
         suffix = suffix.replace('*','').replace(':','').replace('|','')
@@ -903,6 +921,7 @@ class docket_processor():
             with open(result_path + '/' + '^' + key + '_' + suffix +'.csv'
                       , 'w') as f:
                  writer = csv.writer(f, dialect='excel')
+                 writer.writerow(csv_headers)
                  writer.writerows(self.hit_list[key])         
              
         
