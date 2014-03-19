@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Tutorial &mdash; pacer_lib 2.32 documentation</title>
+    <title>Tutorial &mdash; pacer_lib 2.33 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '2.32',
+        VERSION:     '2.33',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="pacer_lib 2.32 documentation" href="index.html" />
+    <link rel="top" title="pacer_lib 2.33 documentation" href="index.html" />
     <link rel="next" title="pacer_lib.scraper" href="pacer_lib.scraper.html" />
     <link rel="prev" title="Installation" href="Installation.html" /> 
   </head>
@@ -43,7 +43,7 @@
         <li class="right" >
           <a href="Installation.html" title="Installation"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">pacer_lib 2.32 documentation</a> &raquo;</li> 
+        <li><a href="index.html">pacer_lib 2.33 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -88,7 +88,7 @@ cases = [('almdce', '2:00-cv-00084'),
 for court_id, case_num in cases:
     s.download_case_docket(court_id, case_num)</pre>
 </div>
-<p>As you can see, before you&#8217;ll begin you will need:</p>
+<p>As you can see, before you begin you will need:</p>
 <ul class="simple">
 <li>a valid PACER username and password</li>
 <li>court ids and case numbers in a PACER case-number format for cases that
@@ -218,13 +218,13 @@ directory. Unless otherwise specified, the  output directory will be
 &#8216;./results/&#8217;. Within this output directory, there will be two sub
 directories created:</p>
 <ul>
-<li><p class="first"><tt class="docutils literal"><span class="pre">/processed_dockets/</span></tt></p>
+<li><p class="first"><tt class="docutils literal"><span class="pre">/parsed_dockets/</span></tt></p>
 <blockquote>
 <div><p>contains .csv documents that correspond to specific dockets</p>
 </div></blockquote>
 </li>
 <li><dl class="first docutils">
-<dt><tt class="docutils literal"><span class="pre">/processed_dockets_meta/</span></tt> which contains two additional directories:</dt>
+<dt><tt class="docutils literal"><span class="pre">/parsed_dockets_meta/</span></tt> which contains two additional directories:</dt>
 <dd><ul class="first last">
 <li><p class="first"><tt class="docutils literal"><span class="pre">/case_meta/</span></tt></p>
 <blockquote>
@@ -249,6 +249,10 @@ records when the docket was downloaded (only in newer versions).</p>
 </div>
 <div class="section" id="notes">
 <h3>Notes<a class="headerlink" href="#notes" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li>In older versions of <em>pacer_lib</em> (&lt;= v2.32), we used <tt class="docutils literal"><span class="pre">/processed_dockets/</span></tt>
+and <tt class="docutils literal"><span class="pre">/processed_dockets_meta/</span></tt> as the default folders for <tt class="docutils literal"><span class="pre">docket_parser</span></tt>.</li>
+</ul>
 </div>
 </div>
 <div class="section" id="searching-parsed-dockets">
@@ -431,7 +435,7 @@ function.</p>
         <li class="right" >
           <a href="Installation.html" title="Installation"
              >previous</a> |</li>
-        <li><a href="index.html">pacer_lib 2.32 documentation</a> &raquo;</li> 
+        <li><a href="index.html">pacer_lib 2.33 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

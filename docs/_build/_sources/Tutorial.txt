@@ -43,7 +43,7 @@ Downloading Multiple Documents::
         s.download_case_docket(court_id, case_num)
         
         
-As you can see, before you'll begin you will need:
+As you can see, before you begin you will need:
 
 * a valid PACER username and password
 * court ids and case numbers in a PACER case-number format for cases that
@@ -187,11 +187,11 @@ directory. Unless otherwise specified, the  output directory will be
 './results/'. Within this output directory, there will be two sub
 directories created:
 
-* ``/processed_dockets/``
+* ``/parsed_dockets/``
 
     contains .csv documents that correspond to specific dockets
 
-* ``/processed_dockets_meta/`` which contains two additional directories:
+* ``/parsed_dockets_meta/`` which contains two additional directories:
     * ``/case_meta/`` 
     
         *case_meta* refers to the header information about the docket
@@ -204,10 +204,14 @@ directories created:
         *download_meta* refers to the information about the case that
         can be found on the PACER Case Locator results page. It also
         records when the docket was downloaded (only in newer versions).
-    
+        
 -----
 Notes
 -----
+
+* In older versions of *pacer_lib* (<= v2.32), we used ``/processed_dockets/``
+  and ``/processed_dockets_meta/`` as the default folders for ``docket_parser``.
+
 ===========================
 3. Searching Parsed Dockets
 ===========================
