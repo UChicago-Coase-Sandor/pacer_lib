@@ -181,7 +181,14 @@ class search_agent():
             case_info['case_name'] = result.find('td', {'class':'cs_title'}).string
             case_info['listed_case_no'] = result.find('td', {'class':'case'}).a.string
             case_info['court_id']  = result.find('td', {'class':'court_id'}).string
-            case_info['nos'] = result.find('td', {'class':'nos'}).string
+            
+            # Temporary Fix
+            # Note that there is also a disposition variable in bankruptcy results that we can pull
+            if 'bk' in case_no:
+                case_info['nos'] = result.find('td', {'class':'cs_chapter'}).string
+            else:
+                case_info['nos'] = result.find('td', {'class':'nos'}).string
+                
             case_info['link'] = result.find('td', {'class':'case'}).a.get('href')
             # Handle the Dates
             dates= result.find_all('td', {'class':'cs_date'})
