@@ -25,7 +25,7 @@ Downloading one document::
     s = search_agent("[Username]", "[Password]")
 
     # Download
-    s.download_case_docket(court_id, case_number )
+    s.download_case_docket(case_number,court_id)
 
 Downloading Multiple Documents::
 
@@ -40,7 +40,7 @@ Downloading Multiple Documents::
 
     # Download the case dockets to ./results/local_docket_archive/
     for court_id, case_num in cases:
-        s.download_case_docket(court_id, case_num)
+        s.download_case_docket(case_num, court_id)
         
         
 As you can see, before you begin you will need:
