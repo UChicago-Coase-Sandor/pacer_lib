@@ -221,6 +221,7 @@ class docket_parser():
             if "detailed_info:" in r and '{' in r:
                 r = r.replace('detailed_info:\n','').replace("\"\"", "\"")
                 r = r.replace(" \"", " \\\"").replace("\" ","\\\" ") # fix internal quotation marks
+                r = r.replace(" \'", " \\\'").replace("\' ","\\\' ") # fix internal quotation marks
                 detailed_info = eval(r)
 
             # Legacy detailed_info
@@ -228,6 +229,7 @@ class docket_parser():
                 r = r.replace('detailed_info:', '')
                 r = r.replace('(','[').replace(')',']').replace("\"\"", "\"").strip()
                 r = r.replace(" \"", " \\\"").replace("\" ","\\\" ") # fix internal quotation marks
+                r = r.replace(" \'", " \\\'").replace("\' ","\\\' ") # fix internal quotation marks
                 temp = eval(r)
                 detailed_info = {'searched_case_no':temp[0],
                                  'court_id':temp[1],

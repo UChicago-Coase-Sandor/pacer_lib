@@ -68,12 +68,19 @@ class search_agent():
         Returns nothing.
         """
         #SETTINGS (determined from the form from PACER's '/login.pl')
-        payload = {'loginid':self.username, 'passwd':self.password}
-        login_url = 'https://pacer.login.uscourts.gov/cgi-bin/check-pacer-passwd.pl'
+        login_url = 'https://pacer.login.uscourts.gov/csologin/login.jsf'
         self.br = requests.Session()
+        login_html = self.br.get(login_url)
+        soup = BeautifulSoup(login_html.text)
+        temp = soup.find('button', {'onclick' : 'barWaitDialog.show();'}, text='Login')
+        button = temp['id']
+        payload = {'login':'login', 'login:clientCode':'', button:'', 
+                   'login:loginName':self.username, 'login:password':self.password, 'javax.faces.ViewState':'stateless'}
         response = self.br.post(login_url, data=payload)
-        if "Login Error" in response.text:
-            raise ValueError("Invalid PACER username or password.")
+        if "Invalid ID or password" in response.text:
+            raise ValueError("Invalid ID or password")
+        if "Too many failed login attempts. Account Locked" in response.text:
+            raise BaseException("Login Locked")
 
     def query_case_locator(self, payload):
         """
@@ -353,7 +360,7 @@ class search_agent():
         # 3. Find the final download link from the'charge' page.
         # (there used to be a retry if cannot open, but removed, for now)
         response = self.br.get(document_link)
-        
+        print "continue"
         # Parse the 'charge' page to find the 'viewdoc' url that will request
         # the actual document.
 
@@ -365,14 +372,18 @@ class search_agent():
         if not viewdoc_url:
             multipage_viewdoc_url = temp_soup.find('a', {'onclick':True})
             temp_response = self.br.post(multipage_viewdoc_url.get('href'))
-            temp_soup = BeautifuLSoup.response(temp_response.text)
+            temp_soup = BeautifulSoup(temp_response.text)
             
             #We should now be at the "Accept Charges Page"
             viewdoc_url = temp_soup.find('form', {'action':True})
 
         # Pull out the final document URL.
-        document_url = viewdoc_url.get('action')
-
+        doc_url = viewdoc_url.get('action')
+        if "http" in doc_url:
+            document_url = doc_url
+        else:
+            document_url = ("https://ecf." + court_short_id + ".uscourts.gov" + doc_url)
+        
         # 4. Post to the URL from step 3 with the post_data from part 2.
         document = self.br.post(document_url, data=payload)
 
@@ -512,7 +523,7 @@ class search_agent():
                             case_filename + "_document_U" + str(doc_no) 
                             +'.pdf')
 
-        # 0. Check if this docket has already been downloaded
+        # 0. Check if this document has already been downloaded
         if overwrite is False:
             if os.path.exists(doc_filepath) or \
             os.path.exists(doc_filepath.replace('+','_')):
