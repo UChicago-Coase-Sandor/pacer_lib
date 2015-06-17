@@ -576,7 +576,7 @@ class docket_parser():
 
         return  download_meta, docket_meta
 
-    def parse_dir(self, overwrite=True):
+    def parse_dir(self, overwrite=True, get_meta=True):
         """
         Run ``parse_data()`` and ``extract_all_meta()`` on each file in the 
         docket_path folder and writes the output to the output_path. 
@@ -605,7 +605,7 @@ class docket_parser():
         indicate the source docket and are prefixed by **download_meta_** and
         **case_meta_**, respectively.
         """
-        csv_headers = ['docket_number', 'date_filed', 'document_number', 'docket_description', 
+        csv_headers = ['date_filed', 'document_number', 'docket_description', 
                        'link_exist', 'document_link', 'unique_id']
 
         # Check for all of the files that have been downloaded
@@ -613,17 +613,19 @@ class docket_parser():
             for file in files:
                 output_filename = (self.output_path + '/' +  
                                    file.replace('html', 'csv'))
-                case_meta_filename = (self.output_meta_path + '/case_meta/case_meta_' +
-                                      file.replace('html', 'json'))
-                download_meta_filename = (self.output_meta_path + 
-                                          '/download_meta/download_meta_' + 
+                if get_meta:
+                    case_meta_filename = (self.output_meta_path + '/case_meta/case_meta_' +
                                           file.replace('html', 'json'))
+                    download_meta_filename = (self.output_meta_path + 
+                                              '/download_meta/download_meta_' + 
+                                              file.replace('html', 'json'))
 
                 #If the file exists and we have been told not to overwrite, skip.
                 if overwrite or not os.path.exists(output_filename):
                     with open(self.docket_path + '/' + file, 'r') as input:
                         source = input.read()
-                        download_meta, case_meta = self.extract_all_meta(source)
+                        if get_meta:
+                            download_meta, case_meta = self.extract_all_meta(source)
                         content = self.parse_data(source)
 
                         # Error handling; copy the docket out and continue.
@@ -635,18 +637,20 @@ class docket_parser():
                             continue
 
                         #Add the number of download entries
-                        case_meta['docket_entries'] = len(content)
+                        if get_meta:
+                            case_meta['docket_entries'] = len(content)
 
                         with codecs.open(output_filename, 'w') as output:
                             writer = UnicodeWriter(output, dialect='excel')
                             writer.writerow(csv_headers)
                             writer.writerows(content)
 
-                        with codecs.open(download_meta_filename, 'w') as output:
-                            json.dump(download_meta, output)
+                        if get_meta:
+                            with codecs.open(download_meta_filename, 'w') as output:
+                                json.dump(download_meta, output)
 
-                        with codecs.open(case_meta_filename, 'w') as output:
-                            json.dump(case_meta, output)                                    
+                            with codecs.open(case_meta_filename, 'w') as output:
+                                json.dump(case_meta, output)                                    
 
 class docket_processor():
     """
